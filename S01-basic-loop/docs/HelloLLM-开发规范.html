@@ -97,6 +97,19 @@ article a:hover { text-decoration: underline; }
     ├── README.md                    #   项目说明
     └── requirements*.txt            #   依赖声明（运行时零第三方依赖）</code></pre>
 <p>后续阶段（权限系统 / 会话持久化 / MCP / 压缩流水线 / Hook / 子 Agent）将作为 <code class="inline-code">S02-*</code>、<code class="inline-code">S03-*</code> 完整项目包并列放入仓库根。</p>
+<p><strong>阶段结构约定（重要）：</strong></p>
+<ol>
+<li><strong>每个阶段目录 = 截至该阶段的完整最新版项目包</strong>（自包含、可直接运行）——</li>
+</ul>
+<p>包含当前全部功能、配置、测试、文档，不是增量补丁；</p>
+<ol>
+<li>新阶段（如 <code class="inline-code">S02-*</code>）在上一阶段基础上<strong>按开发需求新增</strong>功能，</li>
+</ul>
+<p>同时<strong>继承并升级</strong>所有既有内容（代码 / 测试 / 文档随阶段同步演进）；</p>
+<ol>
+<li>每阶段的 <code class="inline-code">docs/</code> 目录均保留一份<strong>截至该阶段的开发规范</strong>（含最新目录结构树与约定），</li>
+</ul>
+<p>保证任意阶段独立可读、可运行、可继续开发。</p>
 <h2 id="二-开发流程要求">二、开发流程要求</h2>
 <ol>
 <li><strong>先计划后执行：</strong> 任务开始前先展示完整 workflow 计划（目录结构、场景清单、依赖、预估时长），确认后再动手。</li>
