@@ -1,9 +1,10 @@
 # HelloLLM 开发规范
 
-> 版本: v1.0
+> 版本: v1.1
 > 日期: 2026-08
 > 依据: 论文《Dive into Claude Code》(arXiv:2604.14228v2) 图1 七组件模型
 > 用途: 后续模块开发说明文档
+> 结构: 教程式打包，每阶段 = 完整项目（Nuos/HelloLLM/S01-basic-loop/hello_llm）
 
 ## 一、项目总览
 
@@ -12,6 +13,24 @@
 
 **后续模块路线（论文章节映射）：**
 权限系统（§5）→ 会话持久化（§9）→ MCP/工具扩展（§6）→ 上下文压缩流水线（§7）→ Hook（§5/§6）→ 子 Agent 委派（§8）→ 记忆（§7.2）。
+
+**仓库结构（教程式打包）：** 每个课程阶段是一个完整项目包（功能 + 配置 + 测试 + 文档），
+并列放在仓库根下；当前阶段为 `S01-basic-loop/`：
+
+```text
+HelloLLM/                            # GitHub: Nuos/HelloLLM
+├── README.md                        # 仓库说明（结构树 + 快速开始）
+└── S01-basic-loop/                  # ★ 当前阶段：完整项目包
+    ├── hello_llm/                   #   Python 包（见 3.1 分层）
+    ├── tests/                       #   34 项单元测试
+    ├── docs/                        #   开发规范文档（本文件）
+    ├── pyproject.toml               #   项目配置
+    ├── README.md                    #   项目说明
+    └── requirements*.txt            #   依赖声明（运行时零第三方依赖）
+```
+
+后续阶段（权限系统 / 会话持久化 / MCP / 压缩流水线 / Hook / 子 Agent）将作为
+`S02-*`、`S03-*` 完整项目包并列放入仓库根。
 
 ## 二、开发流程要求
 
@@ -28,35 +47,42 @@
 ### 3.1 目录结构（参考 clawcodex 源码分层）
 
 ```text
-hello_llm/
-├── __init__.py                 包入口：版本号 + 项目说明 + 全局术语表
-├── __main__.py                 python -m hello_llm 入口
+HelloLLM/S01-basic-loop/               # 当前阶段根（完整项目包）
+├── hello_llm/                         # Python 包
+│   ├── __init__.py                    包入口：版本号 + 项目说明 + 全局术语表
+│   ├── __main__.py                    python -m hello_llm 入口
+│   │
+│   ├── entrypoints/                   一、交互表面层（论文图1 "Interfaces"）
+│   │   ├── cli.py                     CLI 入口：argparse + 配置校验 + 分派（薄壳）
+│   │   ├── repl.py                    交互 REPL（多轮对话）
+│   │   ├── headless.py                无头单次（对照 claude -p）
+│   │   └── render.py                  Agent-Loop 事件渲染
+│   │
+│   ├── query/                         二、核心层（论文图1 "Agent Loop"，§4.1）
+│   │   └── agent_loop.py              query_loop() 生成器 + Conversation 会话状态
+│   │
+│   ├── config/                        三、配置层（本地配置文件）
+│   │   └── loader.py                  ~/.hellollm/config.json 定位/解析/合并
+│   │
+│   ├── providers/                     四、模型提供商层（Agent-Loop 的 callModel）
+│   │   ├── config.py                  ModelConfig 模型调用配置（含 API key 校验）
+│   │   ├── types.py                   数据结构与异常
+│   │   ├── openai_compatible.py       stream_chat：SSE 流式客户端
+│   │   └── client.py                  consume_stream + call_model：流式事件聚合
+│   │
+│   ├── tools/                         五、工具层（Agent-Loop 的 execute 路径）
+│   │   ├── registry.py                工具 Schema 池 + execute 分派
+│   │   └── file_tools.py              文件工具实现
+│   │
+│   └── logging/                       六、日志提示层（诊断提示/事件通知）
+│       ├── __init__.py
+│       └── events.py                  事件提示函数（裁剪/预算/额度/工具/轮次）
 │
-├── entrypoints/                一、交互表面层（论文图1 "Interfaces"）
-│   ├── cli.py                  CLI 入口：argparse + 配置校验 + 分派（薄壳）
-│   ├── repl.py                 交互 REPL（多轮对话）
-│   ├── headless.py             无头单次（对照 claude -p）
-│   └── render.py               Agent-Loop 事件渲染
-│
-├── query/                      二、核心层（论文图1 "Agent Loop"，§4.1）
-│   └── agent_loop.py           query_loop() 生成器 + Conversation 会话状态
-│
-├── config/                     三、配置层（本地配置文件）
-│   └── loader.py               ~/.hellollm/config.json 定位/解析/合并
-│
-├── providers/                  四、模型提供商层（Agent-Loop 的 callModel）
-│   ├── config.py               ModelConfig 模型调用配置（含 API key 校验）
-│   ├── types.py                数据结构与异常
-│   ├── openai_compatible.py    stream_chat：SSE 流式客户端
-│   └── client.py               consume_stream + call_model：流式事件聚合
-│
-├── tools/                      五、工具层（Agent-Loop 的 execute 路径）
-│   ├── registry.py             工具 Schema 池 + execute 分派
-│   └── file_tools.py           文件工具实现
-│
-└── logging/                    六、日志提示层（诊断提示/事件通知）
-    ├── __init__.py
-    └── events.py               事件提示函数（裁剪/预算/额度/工具/轮次）
+├── tests/                             34 项单元测试（test_agent_loop / cli / config / tools / logging）
+├── docs/                              开发规范文档（本文件 + HTML 版）
+├── pyproject.toml                     项目配置（[project.scripts] hello-llm）
+├── README.md                          项目说明
+└── requirements*.txt                  依赖声明（运行时零第三方依赖）
 ```
 
 ### 3.2 硬性规则
@@ -133,15 +159,16 @@ hello_llm/
 1. 测试用 **pytest**；模型调用一律 mock（注入假 call_model），**不发真实 API**。
 2. 新增功能必须有测试；bug 修复必须有回归测试（如协议 400 的 `_assert_protocol_valid` 回归保护）。
 3. 现有测试文件：`test_agent_loop`（循环+协议守卫）/ `test_cli`（fail-fast）/ `test_config`（配置合并）/ `test_tools`（文件工具）/ `test_logging`（日志提示）。
-4. 验证流程：
-   1. `.venv/bin/python -m pytest -q` 全绿；
+4. 验证流程（在阶段目录 `S01-basic-loop/` 下执行）：
+   1. `cd S01-basic-loop && .venv/bin/python -m pytest -q` 全绿；
    2. 真实 API 冒烟：无头 `-p` / REPL 多轮 / 工具路径各跑一遍；
-   3. 清空环境变量验证配置来源（`env -u HELLOLLM_API_KEY ...`）。
+   3. 清空环境变量验证配置来源（`env -u HELLOLLM_API_KEY ...`）；
+   4. VS Code 调试验证：debugpy 运行 `hello_llm/entrypoints/cli.py`（脚本模式双兼容）。
 5. 运行环境：`/opt/homebrew/bin/python3.11 -m venv .venv`；运行时零第三方依赖（纯标准库）。
 
 ## 九、新增模块开发 Checklist
 
-1. 确定模块归属层（entrypoints / query / config / providers / tools / logging），放入对应文件夹；
+1. 确定模块归属层（entrypoints / query / config / providers / tools / logging），放入 `S01-basic-loop/hello_llm/` 对应文件夹；
 2. 文件头 docstring：模块职责 + 完整框架树 + `★★★ 本模块位置 ★★★` + 缩略词说明；
 3. 每个函数：编号 docstring（一、功能 二、参数 三、返回）；缩写变量声明处注释；import 注释；
 4. 包内 `__init__.py` 聚合导出，更新各文件框架树；
