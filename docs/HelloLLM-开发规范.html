@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HelloLLM 开发规范</title>
+<style>
+:root { --sidebar-w: 280px; --accent: #1d9bf0; --bg: #fff; --fg: #0f1419;
+  --muted: #536471; --border: #e1e8ed; --code-bg: #0d1117; --code-fg: #e6edf3; --quote-bg: #f7f9fa; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Segoe UI", Roboto, sans-serif;
+  color: var(--fg); background: var(--bg); line-height: 1.7; }
+#sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-w);
+  background: #f7f9fa; border-right: 1px solid var(--border); overflow-y: auto; padding: 20px 16px;
+  transition: transform .25s ease; z-index: 100; }
+body.sidebar-collapsed #sidebar { transform: translateX(-100%); }
+#sidebar .side-header { font-size: 15px; font-weight: 700; color: var(--accent); margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid var(--border); }
+#sidebar nav ul { list-style: none; }
+#sidebar nav li { margin: 2px 0; }
+#sidebar nav a { display: block; padding: 7px 10px; border-radius: 8px; color: var(--fg);
+  text-decoration: none; font-size: 14px; border-left: 3px solid transparent; transition: background .15s; }
+#sidebar nav a:hover, #sidebar nav a.active { background: #e8f0fe; color: var(--accent); }
+#sidebar nav a.active { border-left-color: var(--accent); font-weight: 600; }
+#content { margin-left: var(--sidebar-w); padding: 32px 48px 80px; max-width: 920px; transition: margin-left .25s ease; }
+body.sidebar-collapsed #content { margin-left: 0; }
+#toggle-btn { position: fixed; top: 14px; left: 14px; z-index: 200; width: 36px; height: 36px; border-radius: 8px;
+  border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 16px; color: var(--fg);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08); transition: left .25s ease; }
+#toggle-btn:hover { background: #e8f0fe; }
+article h1 { font-size: 30px; line-height: 1.3; margin: 8px 0 16px; }
+article h2 { font-size: 22px; margin: 40px 0 14px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+article h3 { font-size: 18px; margin: 28px 0 10px; }
+article p { margin: 12px 0; }
+article img { max-width: 100%; height: auto; border-radius: 10px; margin: 16px 0; border: 1px solid var(--border); display: block; }
+article hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+article blockquote { background: var(--quote-bg); border-left: 4px solid var(--accent); padding: 12px 18px; margin: 16px 0; border-radius: 0 8px 8px 0; color: var(--muted); }
+article ul, article ol { margin: 12px 0 12px 28px; }
+article li { margin: 4px 0; }
+article a { color: var(--accent); text-decoration: none; }
+article a:hover { text-decoration: underline; }
+.code-block { background: var(--code-bg); color: var(--code-fg); border-radius: 10px; padding: 16px 20px; margin: 16px 0; overflow-x: auto; font-size: 13.5px; line-height: 1.55; }
+.code-block code { font-family: "SF Mono", Menlo, Consolas, "JetBrains Mono", monospace; }
+.inline-code { background: #eef1f4; color: #d63384; border-radius: 4px; padding: 1px 6px; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: .9em; }
+.code-block .lang-tag { display: block; color: #8b949e; font-size: 12px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .5px; }
+.meta-box { background: #f7f9fa; border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 16px 0 24px; font-size: 13.5px; }
+.meta-item { display: flex; margin: 3px 0; }
+.meta-label { color: var(--muted); width: 90px; flex-shrink: 0; }
+.meta-value { font-weight: 500; }
+#to-top { position: fixed; right: 24px; bottom: 24px; z-index: 200; width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 18px; color: var(--fg);
+  box-shadow: 0 2px 6px rgba(0,0,0,.12); display: none; }
+#to-top.show { display: block; }
+@media (max-width: 768px) { #content { padding: 24px 18px 60px; } #sidebar { width: 250px; } }
+</style>
+</head>
+<body>
+<button id="toggle-btn" title="切换导航栏" aria-label="切换导航栏">☰</button>
+<aside id="sidebar">
+  <div class="side-header">📑 目录</div>
+  <nav><ul>
+    <li><a href="#top" data-nav>⤴ 顶部</a></li>
+    <li><a href="#一-项目总览" data-nav>一、项目总览</a></li>
+<li><a href="#二-开发流程要求" data-nav>二、开发流程要求</a></li>
+<li><a href="#三-模块化要求" data-nav>三、模块化要求</a></li>
+<li><a href="#四-注释要求" data-nav>四、注释要求</a></li>
+<li><a href="#五-异常处理要求" data-nav>五、异常处理要求</a></li>
+<li><a href="#六-日志提示要求" data-nav>六、日志提示要求</a></li>
+<li><a href="#七-配置规范" data-nav>七、配置规范</a></li>
+<li><a href="#八-测试与验证要求" data-nav>八、测试与验证要求</a></li>
+<li><a href="#九-新增模块开发-checklist" data-nav>九、新增模块开发 Checklist</a></li>
+    <li><a href="#end" data-nav>⤵ 文末</a></li>
+  </ul></nav>
+</aside>
+<main id="content">
+  <article id="top">
+    <h1>HelloLLM 开发规范</h1>
+    <div class="meta-item"><span class="meta-label">版本</span><span class="meta-value">v1.0</span></div><div class="meta-item"><span class="meta-label">日期</span><span class="meta-value">2026-08</span></div><div class="meta-item"><span class="meta-label">依据</span><span class="meta-value">论文《Dive into Claude Code》(arXiv:2604.14228v2) 图1 七组件模型</span></div><div class="meta-item"><span class="meta-label">用途</span><span class="meta-value">后续模块开发说明文档</span></div>
+    <h1 id="hellollm-开发规范">HelloLLM 开发规范</h1>
+<blockquote>
+<p>版本: v1.0</p>
+<p>日期: 2026-08</p>
+<p>依据: 论文《Dive into Claude Code》(arXiv:2604.14228v2) 图1 七组件模型</p>
+<p>用途: 后续模块开发说明文档</p>
+</blockquote>
+<h2 id="一-项目总览">一、项目总览</h2>
+<p><strong>目标：</strong> 依据论文分析，按步骤重建 Claude Code 架构，功能、模块逐步添加。 当前为 v1 最简可交互版本：<strong>CLI 入口层 + Agent-Loop</strong>，其余组件留待后续版本。</p>
+<p><strong>后续模块路线（论文章节映射）：</strong> 权限系统（§5）→ 会话持久化（§9）→ MCP/工具扩展（§6）→ 上下文压缩流水线（§7）→ Hook（§5/§6）→ 子 Agent 委派（§8）→ 记忆（§7.2）。</p>
+<h2 id="二-开发流程要求">二、开发流程要求</h2>
+<ol>
+<li><strong>先计划后执行：</strong> 任务开始前先展示完整 workflow 计划（目录结构、场景清单、依赖、预估时长），确认后再动手。</li>
+<li><strong>迭代工作流：</strong> inspect（读代码）→ adapt（适配）→ execute（执行）→ verify（验证）→ table（表格汇报）。</li>
+<li><strong>修改后自测再报告：</strong> 每轮改动必须跑 pytest 全绿 + 真实运行验证，再汇报结果。</li>
+<li><strong>发布前验证：</strong> 逐功能系统化测试（模块导入 / 对象运行 / 生命周期 / 渲染流水线 / 系统依赖 五维度）。</li>
+<li><strong>修根因不修症状：</strong> 发现 bug 先定位根因，检查兄弟调用路径同类缺陷，修复后补<strong>回归测试</strong>。</li>
+<li><strong>不擅自缩小/扩大范围：</strong> 任务范围模糊时先问用户；删除文件前必须问；不主动下载/安装未经同意的依赖。</li>
+<li><strong>如实报告：</strong> 失败/受阻直接说，绝不伪造运行结果。</li>
+</ul>
+<h2 id="三-模块化要求">三、模块化要求</h2>
+<h3 id="3-1-目录结构-参考-clawcodex-源码分层">3.1 目录结构（参考 clawcodex 源码分层）</h3>
+<pre class="code-block"><code class="language-text">hello_llm/
+├── __init__.py                 包入口：版本号 + 项目说明 + 全局术语表
+├── __main__.py                 python -m hello_llm 入口
+│
+├── entrypoints/                一、交互表面层（论文图1 &quot;Interfaces&quot;）
+│   ├── cli.py                  CLI 入口：argparse + 配置校验 + 分派（薄壳）
+│   ├── repl.py                 交互 REPL（多轮对话）
+│   ├── headless.py             无头单次（对照 claude -p）
+│   └── render.py               Agent-Loop 事件渲染
+│
+├── query/                      二、核心层（论文图1 &quot;Agent Loop&quot;，§4.1）
+│   └── agent_loop.py           query_loop() 生成器 + Conversation 会话状态
+│
+├── config/                     三、配置层（本地配置文件）
+│   └── loader.py               ~/.hellollm/config.json 定位/解析/合并
+│
+├── providers/                  四、模型提供商层（Agent-Loop 的 callModel）
+│   ├── config.py               ModelConfig 模型调用配置（含 API key 校验）
+│   ├── types.py                数据结构与异常
+│   ├── openai_compatible.py    stream_chat：SSE 流式客户端
+│   └── client.py               consume_stream + call_model：流式事件聚合
+│
+├── tools/                      五、工具层（Agent-Loop 的 execute 路径）
+│   ├── registry.py             工具 Schema 池 + execute 分派
+│   └── file_tools.py           文件工具实现
+│
+└── logging/                    六、日志提示层（诊断提示/事件通知）
+    ├── __init__.py
+    └── events.py               事件提示函数（裁剪/预算/额度/工具/轮次）</code></pre>
+<h3 id="3-2-硬性规则">3.2 硬性规则</h3>
+<ol>
+<li><strong>所有 Python 文件必须放在对应模块文件夹中</strong>，一个文件一个职责，禁止散落的顶层 .py。</li>
+<li>新增/移动模块后，<strong>必须同步更新所有文件头 docstring 里的框架树</strong>（统一脚本或手工）。</li>
+<li>包内 <code class="inline-code">__init__.py</code> 聚合导出，外部统一从包导入（如 <code class="inline-code">from hello_llm.providers import ModelConfig</code>）。</li>
+<li>依赖方向单向：entrypoints → query / config → providers / tools → logging；logging 无依赖（可被任何层引用）。</li>
+<li>模型/工具等实现类模块内部可拆子包（config / types / client 等），命名对齐 clawcodex（如 providers/openai_compatible.py）。</li>
+<li>关键模块可被测试注入（call_model / execute_tool / stream_model 均为注入点），便于 mock 测试。</li>
+</ul>
+<h2 id="四-注释要求">四、注释要求</h2>
+<ol>
+<li><strong>文件头模块描述（每个 .py 必写）：</strong> docstring 首行 <code class="inline-code">模块：xxx —— 一句话职责</code>；完整项目框架结构树（与上文 3.1 一致）；树中用 <code class="inline-code">★★★ 本模块：xxx ★★★</code> 标注本模块位置；末尾"缩略词说明"小节（列出本模块出现的术语）。</li>
+<li><strong>函数描述（每个函数必写）：</strong> docstring 说明"当前函数在本模块中的功能作用"，编号结构：</li>
+</ul>
+<pre class="code-block"><code class="language-text">一、功能作用     —— 本函数在模块中做什么、对应论文哪节
+二、参数         —— 每个参数的用途
+三、返回         —— 返回值含义
+四、（可选）异常/安全策略/设计原则/注意事项</code></pre>
+<ol>
+<li><strong>简写/缩写变量注释：</strong> 所有简写变量/函数在<strong>声明位置</strong>注释全称与含义，如 <code class="inline-code">cfg</code>=ModelConfig、<code class="inline-code">conv</code>=Conversation、<code class="inline-code">msgs</code>=messages、<code class="inline-code">tc</code>=ToolCall、<code class="inline-code">buf</code>=buffer、<code class="inline-code">fn</code>=function、<code class="inline-code">p</code>=Path 等。</li>
+<li><strong>缩略词术语注释：</strong> CLI / REPL / SSE / API / JSON / HTTP / TTY / ANSI / DNS / URL / Bearer / ReAct / EOF / MCP / F5 等，在首次出现处或模块"缩略词说明"小节给出全称 + 中文含义（全局术语表见 <code class="inline-code">hello_llm/__init__.py</code>）。</li>
+<li><strong>注释有条理：</strong> 使用编号层级 <code class="inline-code">一、 → 1. → 1.1</code>；行内注释解释"为什么"而非复述代码。</li>
+<li><strong>导入包也要加注释：</strong> 每个 import 标注用途（如 <code class="inline-code">import json  # 工具参数序列化</code>）。</li>
+</ul>
+<h2 id="五-异常处理要求">五、异常处理要求</h2>
+<ol>
+<li><strong>未配置 API Key</strong> — CLI 启动 fail-fast：<code class="inline-code">[配置错误]</code> + 完整配置指引，退出码 1，不发网络请求</li>
+<li><strong>HTTP 错误（401/400/429…）</strong> — <code class="inline-code">[模型错误] HTTP xxx: &lt;服务端错误体&gt;</code>；429 额外输出额度提示</li>
+<li><strong>请求超时</strong> — 分类提示 + <code class="inline-code">--timeout</code> 调大建议（注意 socket.timeout 需单独捕获）</li>
+<li><strong>网络错误（DNS/连接拒绝）</strong> — <code class="inline-code">[模型错误] 网络错误: &lt;原因&gt;</code></li>
+<li><strong>REPL 流式中 Ctrl-C</strong> — 中止本轮（<code class="inline-code">[已中止本轮]</code>），回到输入提示，不退出程序</li>
+<li><strong>模型空回复</strong> — 显式提示，杜绝"输入后没反应"的错觉</li>
+<li><strong>其他未知异常</strong> — <code class="inline-code">[内部错误] &lt;类型&gt;: &lt;信息&gt;</code> 兜底，绝不静默失败</li>
+<li><strong>协议一致性（tool 消息）</strong> — 历史裁剪后必须清理孤立 tool 消息（否则 HTTP 400）——已实现的 <code class="inline-code">_prune_incomplete_tool_sequences</code> 守卫</li>
+</ul>
+<h2 id="六-日志提示要求">六、日志提示要求</h2>
+<blockquote>
+<p><strong>原则：</strong> 触发了某个模块、模块的功能（信息裁剪、调用读文件工具、超出预算、超出额度等），必须出现明显日志提醒；出现异常或遇到限制，至少发出提示信息通知用户。</p>
+</blockquote>
+<ol>
+<li><code class="inline-code">ℹ</code> 青色 · 信息 · 模块/轮次触发 — <code class="inline-code">Agent-Loop 第 1/10 轮：调用模型 deepseek-v4-flash</code></li>
+<li><code class="inline-code">⚙</code> 紫色 · 工具 · 工具触发/完成 — <code class="inline-code">工具触发：read_file({...})</code> / <code class="inline-code">工具完成：read_file 返回 4154 字符</code></li>
+<li><code class="inline-code">⚠</code> 黄色 · 警告 · 限制事件 — <code class="inline-code">上下文超预算：…已裁剪 N 条最老消息</code> / <code class="inline-code">达到最大轮数限制（N 轮）</code> / <code class="inline-code">模型未返回内容</code></li>
+<li><code class="inline-code">✖</code> 红色 · 错误 · 失败/异常 — <code class="inline-code">工具失败：read_file → 错误：…</code> / <code class="inline-code">额度/频率限制：HTTP 429…</code></li>
+</ul>
+<ul>
+<li>输出到 <strong>stderr</strong>（不污染 stdout 答案），flush 即时上屏，任何运行模式（含 --no-stream）可见。</li>
+<li>事件函数集中在 <code class="inline-code">logging/events.py</code>（notice / warn / error / tool + 业务事件函数），由各层接入。</li>
+<li>新增限制/异常事件必须走日志层，禁止裸 print 或无提示。</li>
+</ul>
+<h2 id="七-配置规范">七、配置规范</h2>
+<ol>
+<li><strong>API key 不写死在代码中，不读环境变量</strong>（VS Code F5 调试不加载 shell 配置，环境变量方案不可靠）。</li>
+<li>唯一本地来源：配置文件 <code class="inline-code">~/.hellollm/config.json</code>（JSON），独立加载模块 <code class="inline-code">config/loader.py</code>。</li>
+</ul>
+<pre class="code-block"><code class="language-json">{
+  &quot;api_key&quot;: &quot;sk-...&quot;,
+  &quot;api_base&quot;: &quot;https://api.deepseek.com&quot;,
+  &quot;model&quot;: &quot;deepseek-v4-flash&quot;,
+  &quot;timeout&quot;: 120
+}</code></pre>
+<ol>
+<li>优先级：<strong>命令行参数 &gt; 配置文件 &gt; 内置默认值</strong>；<code class="inline-code">--config &lt;path&gt;</code> 指定后只认该路径（不回退默认）。</li>
+<li>API key 可填写位置：① <code class="inline-code">~/.hellollm/config.json</code> 的 <code class="inline-code">api_key</code> 字段（推荐，chmod 600）；② <code class="inline-code">--api-key sk-...</code>（临时覆盖）；③ <code class="inline-code">--config &lt;path&gt;</code>（其他配置文件）。</li>
+<li>启动时输出配置来源（<code class="inline-code">✓ API Key 来源：本地配置文件 …</code>），缺 key 时 fail-fast 给出完整指引。</li>
+<li>密钥文件位于用户主目录、项目仓库之外；创建后 <code class="inline-code">chmod 600</code>。</li>
+</ul>
+<h2 id="八-测试与验证要求">八、测试与验证要求</h2>
+<ol>
+<li>测试用 <strong>pytest</strong>；模型调用一律 mock（注入假 call_model），<strong>不发真实 API</strong>。</li>
+<li>新增功能必须有测试；bug 修复必须有回归测试（如协议 400 的 <code class="inline-code">_assert_protocol_valid</code> 回归保护）。</li>
+<li>现有测试文件：<code class="inline-code">test_agent_loop</code>（循环+协议守卫）/ <code class="inline-code">test_cli</code>（fail-fast）/ <code class="inline-code">test_config</code>（配置合并）/ <code class="inline-code">test_tools</code>（文件工具）/ <code class="inline-code">test_logging</code>（日志提示）。</li>
+<li>验证流程：</li>
+</ul>
+<p>1. <code class="inline-code">.venv/bin/python -m pytest -q</code> 全绿； 2. 真实 API 冒烟：无头 <code class="inline-code">-p</code> / REPL 多轮 / 工具路径各跑一遍； 3. 清空环境变量验证配置来源（<code class="inline-code">env -u HELLOLLM_API_KEY ...</code>）。</p>
+<ol>
+<li>运行环境：<code class="inline-code">/opt/homebrew/bin/python3.11 -m venv .venv</code>；运行时零第三方依赖（纯标准库）。</li>
+</ul>
+<h2 id="九-新增模块开发-checklist">九、新增模块开发 Checklist</h2>
+<ol>
+<li>确定模块归属层（entrypoints / query / config / providers / tools / logging），放入对应文件夹；</li>
+<li>文件头 docstring：模块职责 + 完整框架树 + <code class="inline-code">★★★ 本模块位置 ★★★</code> + 缩略词说明；</li>
+<li>每个函数：编号 docstring（一、功能 二、参数 三、返回）；缩写变量声明处注释；import 注释；</li>
+<li>包内 <code class="inline-code">__init__.py</code> 聚合导出，更新各文件框架树；</li>
+<li>异常路径全部有提示（fail-fast / 分类提示 / 日志层事件）；</li>
+<li>补测试（正常路径 + 边界 + 回归），pytest 全绿；</li>
+<li>真实运行冒烟（无头 + REPL + 工具路径），表格汇报改动文件与验证结果；</li>
+<li>更新 README（结构表 / 异常表 / 日志表 / 配置说明）。</li>
+</ul>
+    <div id="end" style="height:1px;"></div>
+  </article>
+</main>
+<button id="to-top" title="返回顶部">↑</button>
+<script>
+(function () {
+  const body = document.body, btn = document.getElementById('toggle-btn'), toTop = document.getElementById('to-top');
+  const KEY = 'nav-hellollm-开发规范';
+  if (localStorage.getItem(KEY) === 'collapsed') body.classList.add('sidebar-collapsed');
+  btn.addEventListener('click', function () {
+    body.classList.toggle('sidebar-collapsed');
+    localStorage.setItem(KEY, body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open');
+  });
+  window.addEventListener('scroll', function () { toTop.classList.toggle('show', window.scrollY > 600); });
+  toTop.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  const navLinks = document.querySelectorAll('[data-nav]'), sections = [];
+  navLinks.forEach(a => { const el = document.getElementById(a.getAttribute('href').slice(1)); if (el) sections.push({ id: el.id, el }); });
+  const spy = new IntersectionObserver(function (entries) {
+    entries.forEach(e => { if (e.isIntersecting) {
+      navLinks.forEach(a => a.classList.remove('active'));
+      const link = document.querySelector('[data-nav][href="#' + e.target.id + '"]');
+      if (link) link.classList.add('active');
+    } });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+  sections.forEach(s => spy.observe(s.el));
+  document.querySelectorAll('.code-block').forEach(function (pre) {
+    const code = pre.querySelector('code');
+    const lang = (code.className.match(/language-(\w+)/) || [])[1] || 'text';
+    const tag = document.createElement('span'); tag.className = 'lang-tag'; tag.textContent = lang;
+    pre.prepend(tag);
+  });
+})();
+</script>
+</body>
+</html>
