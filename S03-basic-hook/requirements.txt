@@ -1,0 +1,17 @@
+# HelloLLM 运行时依赖清单
+#
+# 运行时零第三方依赖 —— 全部使用 Python 标准库：
+#   - 网络/HTTP：urllib（model.py 的 SSE 流式客户端）
+#   - 数据/JSON：json / dataclasses / typing
+#   - 文件操作：pathlib
+#
+# 因此直接运行即可，无需 pip install 任何运行时包：
+#   python3 -m hello_llm
+#   python3 -m hello_llm -p "提问"
+#
+# 若需安装为可执行命令（hello-llm）：
+#   pip install -e .
+#
+# ── 开发/测试依赖（非运行必需）──────────────────────────────
+# 运行单元测试需要 pytest：
+#   pip install -r requirements.txt -r requirements.dev.txt

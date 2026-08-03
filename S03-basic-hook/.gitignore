@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 测试与缓存
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 系统与临时
+.DS_Store
+*.log
+*.tmp
+*.swp
+
+# 环境与密钥（禁止提交用户信息/API key）
+.env
+.env.*
+*.pem
+id_*
+config.json
+
+# S03 hook：项目内 hook 规则（用户私人配置，不提交；示例模板可提交）
+hooks.json

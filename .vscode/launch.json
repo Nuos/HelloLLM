@@ -26,6 +26,19 @@
         "NO_PROXY": "api.deepseek.com",
         "no_proxy": "api.deepseek.com"
       }
+    },
+    {
+      "name": "HelloLLM S03 (REPL)",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/S03-basic-hook/.venv/bin/python",
+      "program": "${workspaceFolder}/S03-basic-hook/hello_llm/entrypoints/cli.py",
+      "cwd": "${workspaceFolder}/S03-basic-hook",
+      "console": "integratedTerminal",
+      "env": {
+        "NO_PROXY": "api.deepseek.com",
+        "no_proxy": "api.deepseek.com"
+      }
     }
   ]
 }
