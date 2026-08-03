@@ -5,8 +5,8 @@
 
 import pytest
 
-from hello_llm.logging import events as log_events  # 日志事件函数（直接测输出）
-from hello_llm.providers import ModelResponse, ToolCall  # 模型数据结构（构造假模型）
+from hello_llm.utils import logging as log_events  # 日志事件函数（直接测输出）
+from hello_llm.services.api import ModelResponse, ToolCall  # 模型数据结构（构造假模型）
 from hello_llm.query.agent_loop import Conversation, query_loop  # 会话 + 循环
 
 

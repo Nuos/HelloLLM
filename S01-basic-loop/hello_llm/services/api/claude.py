@@ -1,44 +1,40 @@
-"""模块：providers/openai_compatible.py —— OpenAI 兼容 SSE 流式客户端。
+"""模块：services/api/claude.py —— OpenAI 兼容 SSE 流式客户端。
 
 ====================================================================
-HelloLLM 项目框架结构（v1，论文图1 七组件模型 → 模块映射）
+HelloLLM 项目框架结构（S01-basic-loop，论文图1 七组件模型 → 模块映射）
 
-hello_llm/
-├── __init__.py                 包入口：版本号 + 项目说明
-├── __main__.py                 python -m hello_llm 入口
-│
-├── entrypoints/                一、交互表面层（图1 "Interfaces"）
-│   ├── __init__.py
-│   ├── cli.py                  CLI 入口：argparse + 配置校验 + 分派
-│   ├── repl.py                 交互 REPL（多轮对话）
-│   ├── headless.py             无头单次（对照 claude -p）
-│   └── render.py               Agent-Loop 事件渲染
-│
-├── query/                      二、核心层（图1 "Agent Loop"）
-│   ├── __init__.py
-│   └── agent_loop.py           query_loop() 生成器 + Conversation
-│
-├── config/                     三、配置层（本地配置文件）
-│   ├── __init__.py
-│   └── loader.py               ~/.hellollm/config.json 定位/解析/合并
-│
-├── providers/                  四、模型提供商层（Agent-Loop 的 callModel）
-│   ├── __init__.py
-│   ├── config.py               ModelConfig 模型调用配置（含 API key 校验）
-│   ├── types.py                数据结构与异常
-│   ├── openai_compatible.py    ★★★ 本模块：stream_chat SSE 流式客户端 ★★★
-│   └── client.py               consume_stream + call_model：流式事件聚合
-│
-├── tools/                      五、工具层（Agent-Loop 的 execute 路径）
-    ├── __init__.py
-    ├── registry.py             工具 Schema 池 + execute 分派
-    └── file_tools.py           文件工具实现
-│
-└── logging/                    六、日志提示层（诊断提示/事件通知）
-    ├── __init__.py
-    └── events.py               事件提示函数（裁剪/预算/额度/工具）
-====================================================================
-缩略词说明（本模块涉及的术语）：
+S01-basic-loop/
+└── hello_llm/                            # Python 包
+    ├── __init__.py                       包入口：版本号 + 项目说明 + 全局术语表
+    ├── __main__.py                       python -m hello_llm 入口
+    │
+    ├── entrypoints/                      一、交互表面层（图1 "Interfaces"，对照 src/entrypoints/）
+    │   ├── cli.py                        CLI 入口（对照 src/entrypoints/cli.tsx）
+    │   ├── repl.py                       交互 REPL（多轮对话）
+    │   ├── headless.py                   无头单次（对照 claude -p）
+    │   └── render.py                     Agent-Loop 事件渲染
+    │
+    ├── query/                            二、核心层（图1 "Agent Loop"，对照 src/query/）
+    │   ├── __init__.py
+    │   └── agent_loop.py                 query_loop() 生成器 + Conversation（对照 queryLoop）
+    │
+    ├── services/                         三、服务层（对照 src/services/）
+    │   └── api/                          四、API 客户端（对照 src/services/api/）
+    │       ├── __init__.py
+    │       ├── config.py                 ModelConfig 模型调用配置（含 API key 校验）
+    │       ├── types.py                  数据结构与异常
+    │       ├── claude.py                 stream_chat：SSE 流式客户端（对照 claude.ts）★★★ 本模块 ★★★
+    │       └── client.py                 consume_stream + call_model（对照 client.ts）
+    │
+    ├── tools/                            五、工具层（对照 src/tools/：FileReadTool 等）
+    │   ├── __init__.py
+    │   ├── registry.py                   工具 Schema 池 + execute 分派（对照 tools.ts）
+    │   └── file_tools.py                 read_file / write_file / edit_file 实现
+    │
+    └── utils/                            六、工具函数层（对照 src/utils/：config.ts 等）
+        ├── __init__.py
+        ├── config.py                     本地配置文件加载（对照 src/utils/config.ts）
+        └── logging.py                    日志提示层（对照 src/utils/ 的日志模块）缩略词说明（本模块涉及的术语）：
     1.  API —— Application Programming Interface，应用程序编程接口
     2.  SSE —— Server-Sent Events，服务器推送事件（HTTP 流式协议，逐块推送）
     3.  HTTP —— HyperText Transfer Protocol，超文本传输协议
@@ -58,7 +54,6 @@ import urllib.request  # 发送 HTTP POST 并逐行读取流式响应
 from typing import Any, Iterator, Optional  # 类型标注
 
 from .config import ModelConfig  # 请求配置（端点/密钥/模型/超时）
-from ..logging import rate_limited  # 日志提示层：额度/频率限制提示（HTTP 429）
 from .types import ModelError  # 模型调用异常
 
 
@@ -127,17 +122,21 @@ def stream_chat(
         body = e.read().decode("utf-8", "replace")[:500]  # body：服务端错误体（截断）
         if e.code == 429:
             # 日志提示：额度/频率限制（用户必须知晓的限制事件）
+            # 延迟导入：避免 utils ↔ services.api 循环导入（与 agent_loop 同模式）
+            from ...utils import rate_limited
+
             rate_limited(e.code, body[:200])
-        raise ModelError(f"HTTP {e.code}: {body}") from e
+        raise ModelError(f"HTTP {e.code}: {body}", kind="http") from e
     except (urllib.error.URLError, OSError) as e:  # e：网络层异常
         # URLError 覆盖 DNS/连接拒绝；OSError 覆盖 socket 层异常（含超时）
         if isinstance(e, (socket.timeout, TimeoutError)):
             # 超时优先提示：推理模型思考久，用户第一反应是"是不是卡了"
             raise ModelError(
-                f"请求超时（>{cfg.timeout} 秒）。可稍后重试，或用 --timeout 调大。"
+                f"请求超时（>{cfg.timeout} 秒）。可稍后重试，或用 --timeout 调大。",
+                kind="timeout",
             ) from e
         reason = getattr(e, "reason", e)  # reason：底层原因
-        raise ModelError(f"网络错误: {reason}") from e
+        raise ModelError(f"网络错误: {reason}", kind="network") from e
 
     # ── SSE 逐行解析：resp 可迭代，每项一行 ──
     for raw in resp:  # raw：响应的一行原始字节

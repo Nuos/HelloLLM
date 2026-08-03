@@ -1,0 +1,31 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "HelloLLM S01 (REPL)",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/S01-basic-loop/.venv/bin/python",
+      "program": "${workspaceFolder}/S01-basic-loop/hello_llm/entrypoints/cli.py",
+      "cwd": "${workspaceFolder}/S01-basic-loop",
+      "console": "integratedTerminal",
+      "env": {
+        "NO_PROXY": "api.deepseek.com",
+        "no_proxy": "api.deepseek.com"
+      }
+    },
+    {
+      "name": "HelloLLM S02 (REPL)",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/S02-basic-permission/.venv/bin/python",
+      "program": "${workspaceFolder}/S02-basic-permission/hello_llm/entrypoints/cli.py",
+      "cwd": "${workspaceFolder}/S02-basic-permission",
+      "console": "integratedTerminal",
+      "env": {
+        "NO_PROXY": "api.deepseek.com",
+        "no_proxy": "api.deepseek.com"
+      }
+    }
+  ]
+}

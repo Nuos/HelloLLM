@@ -52,7 +52,7 @@ HelloLLM/                            # GitHub: Nuos/HelloLLM
 
 ## 三、模块化要求
 
-### 3.1 目录结构（参考 clawcodex 源码分层）
+### 3.1 目录结构（参考 claude-code 源码分层）
 
 ```text
 HelloLLM/S01-basic-loop/               # 当前阶段根（完整项目包）
@@ -69,22 +69,21 @@ HelloLLM/S01-basic-loop/               # 当前阶段根（完整项目包）
 │   ├── query/                         二、核心层（论文图1 "Agent Loop"，§4.1）
 │   │   └── agent_loop.py              query_loop() 生成器 + Conversation 会话状态
 │   │
-│   ├── config/                        三、配置层（本地配置文件）
-│   │   └── loader.py                  ~/.hellollm/config.json 定位/解析/合并
+│   ├── services/                     三、服务层（对照 claude-code src/services/）
+│   │   └── api/                      四、API 客户端（对照 src/services/api/）
+│   │       ├── config.py             ModelConfig 模型调用配置（含 API key 校验）
+│   │       ├── types.py              数据结构与异常
+│   │       ├── claude.py             stream_chat：SSE 流式客户端（对照 claude.ts）
+│   │       └── client.py             consume_stream + call_model（对照 client.ts）
 │   │
-│   ├── providers/                     四、模型提供商层（Agent-Loop 的 callModel）
-│   │   ├── config.py                  ModelConfig 模型调用配置（含 API key 校验）
-│   │   ├── types.py                   数据结构与异常
-│   │   ├── openai_compatible.py       stream_chat：SSE 流式客户端
-│   │   └── client.py                  consume_stream + call_model：流式事件聚合
-│   │
-│   ├── tools/                         五、工具层（Agent-Loop 的 execute 路径）
+│   ├── tools/                         五、工具层（对照 claude-code src/tools/）
 │   │   ├── registry.py                工具 Schema 池 + execute 分派
-│   │   └── file_tools.py              文件工具实现
+│   │   └── file_tools.py              read_file / write_file / edit_file
 │   │
-│   └── logging/                       六、日志提示层（诊断提示/事件通知）
-│       ├── __init__.py
-│       └── events.py                  事件提示函数（裁剪/预算/额度/工具/轮次）
+│   └── utils/                         六、工具函数层（对照 claude-code src/utils/）
+│       ├── __init__.py                包入口（聚合导出）
+│       ├── config.py                  本地配置文件加载（对照 src/utils/config.ts）
+│       └── logging.py                 日志提示层（对照 errorLogSink.ts 类比）
 │
 ├── tests/                             34 项单元测试（test_agent_loop / cli / config / tools / logging）
 ├── docs/                              开发规范文档（本文件 + HTML 版）
@@ -97,9 +96,9 @@ HelloLLM/S01-basic-loop/               # 当前阶段根（完整项目包）
 
 1. **所有 Python 文件必须放在对应模块文件夹中**，一个文件一个职责，禁止散落的顶层 .py。
 2. 新增/移动模块后，**必须同步更新所有文件头 docstring 里的框架树**（统一脚本或手工）。
-3. 包内 `__init__.py` 聚合导出，外部统一从包导入（如 `from hello_llm.providers import ModelConfig`）。
-4. 依赖方向单向：entrypoints → query / config → providers / tools → logging；logging 无依赖（可被任何层引用）。
-5. 模型/工具等实现类模块内部可拆子包（config / types / client 等），命名对齐 clawcodex（如 providers/openai_compatible.py）。
+3. 包内 `__init__.py` 聚合导出，外部统一从包导入（如 `from hello_llm.services.api import ModelConfig`）。
+4. 依赖方向单向：entrypoints → query / services/api → tools → utils；utils 无依赖（可被任何层引用）。
+5. 模型/工具等实现类模块内部可拆子包（config / types / client 等），命名对齐 claude-code 源码（如 services/api/claude.py 对照 claude.ts）。
 6. 关键模块可被测试注入（call_model / execute_tool / stream_model 均为注入点），便于 mock 测试。
 
 ## 四、注释要求
@@ -123,7 +122,7 @@ HelloLLM/S01-basic-loop/               # 当前阶段根（完整项目包）
 
 1. **未配置 API Key** — CLI 启动 fail-fast：`[配置错误]` + 完整配置指引，退出码 1，不发网络请求
 2. **HTTP 错误（401/400/429…）** — `[模型错误] HTTP xxx: <服务端错误体>`；429 额外输出额度提示
-3. **请求超时** — 分类提示 + `--timeout` 调大建议（注意 socket.timeout 需单独捕获）
+3. **请求超时** — 分类提示 + `--timeout` 调大建议（注意 socket.timeout 需单独捕获）；network/timeout 类错误由 agent_loop **自动重试最多 3 次**（递增退避 1s/2s），http 类不重试
 4. **网络错误（DNS/连接拒绝）** — `[模型错误] 网络错误: <原因>`
 5. **REPL 流式中 Ctrl-C** — 中止本轮（`[已中止本轮]`），回到输入提示，不退出程序
 6. **模型空回复** — 显式提示，杜绝"输入后没反应"的错觉
@@ -140,13 +139,13 @@ HelloLLM/S01-basic-loop/               # 当前阶段根（完整项目包）
 4. `✖` 红色 · 错误 · 失败/异常 — `工具失败：read_file → 错误：…` / `额度/频率限制：HTTP 429…`
 
 - 输出到 **stderr**（不污染 stdout 答案），flush 即时上屏，任何运行模式（含 --no-stream）可见。
-- 事件函数集中在 `logging/events.py`（notice / warn / error / tool + 业务事件函数），由各层接入。
+- 事件函数集中在 `utils/logging.py`（notice / warn / error / tool + 业务事件函数），由各层接入。
 - 新增限制/异常事件必须走日志层，禁止裸 print 或无提示。
 
 ## 七、配置规范
 
 1. **API key 不写死在代码中，不读环境变量**（VS Code F5 调试不加载 shell 配置，环境变量方案不可靠）。
-2. 唯一本地来源：配置文件 `~/.hellollm/config.json`（JSON），独立加载模块 `config/loader.py`。
+2. 唯一本地来源：配置文件 `~/.hellollm/config.json`（JSON），独立加载模块 `utils/config.py`（对照 claude-code src/utils/config.ts）。
 
 ```json
 {
@@ -176,7 +175,7 @@ HelloLLM/S01-basic-loop/               # 当前阶段根（完整项目包）
 
 ## 九、新增模块开发 Checklist
 
-1. 确定模块归属层（entrypoints / query / config / providers / tools / logging），放入 `S01-basic-loop/hello_llm/` 对应文件夹；
+1. 确定模块归属层（entrypoints / query / services/api / tools / utils），放入 `S01-basic-loop/hello_llm/` 对应文件夹；
 2. 文件头 docstring：模块职责 + 完整框架树 + `★★★ 本模块位置 ★★★` + 缩略词说明；
 3. 每个函数：编号 docstring（一、功能 二、参数 三、返回）；缩写变量声明处注释；import 注释；
 4. 包内 `__init__.py` 聚合导出，更新各文件框架树；

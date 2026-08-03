@@ -1,6 +1,6 @@
 """交互表面层（包）—— 论文图1 "Interfaces" / 论文 §3.3 交互表面层。
 
-对应参考实现（clawcodex 的 src/entrypoints/）：
+对应参考实现（claude-code 源码 src/entrypoints/）：
     本包 = 所有入口与界面代码，套同一个 Agent-Loop（query/agent_loop.py）。
 
 模块清单：

@@ -121,7 +121,7 @@ article a:hover { text-decoration: underline; }
 <li><strong>如实报告：</strong> 失败/受阻直接说，绝不伪造运行结果。</li>
 </ul>
 <h2 id="三-模块化要求">三、模块化要求</h2>
-<h3 id="3-1-目录结构-参考-clawcodex-源码分层">3.1 目录结构（参考 clawcodex 源码分层）</h3>
+<h3 id="3-1-目录结构-参考-claude-code-源码分层">3.1 目录结构（参考 claude-code 源码分层）</h3>
 <pre class="code-block"><code class="language-text">HelloLLM/S01-basic-loop/               # 当前阶段根（完整项目包）
 ├── hello_llm/                         # Python 包
 │   ├── __init__.py                    包入口：版本号 + 项目说明 + 全局术语表
@@ -136,22 +136,21 @@ article a:hover { text-decoration: underline; }
 │   ├── query/                         二、核心层（论文图1 &quot;Agent Loop&quot;，§4.1）
 │   │   └── agent_loop.py              query_loop() 生成器 + Conversation 会话状态
 │   │
-│   ├── config/                        三、配置层（本地配置文件）
-│   │   └── loader.py                  ~/.hellollm/config.json 定位/解析/合并
+│   ├── services/                     三、服务层（对照 claude-code src/services/）
+│   │   └── api/                      四、API 客户端（对照 src/services/api/）
+│   │       ├── config.py             ModelConfig 模型调用配置（含 API key 校验）
+│   │       ├── types.py              数据结构与异常
+│   │       ├── claude.py             stream_chat：SSE 流式客户端（对照 claude.ts）
+│   │       └── client.py             consume_stream + call_model（对照 client.ts）
 │   │
-│   ├── providers/                     四、模型提供商层（Agent-Loop 的 callModel）
-│   │   ├── config.py                  ModelConfig 模型调用配置（含 API key 校验）
-│   │   ├── types.py                   数据结构与异常
-│   │   ├── openai_compatible.py       stream_chat：SSE 流式客户端
-│   │   └── client.py                  consume_stream + call_model：流式事件聚合
-│   │
-│   ├── tools/                         五、工具层（Agent-Loop 的 execute 路径）
+│   ├── tools/                         五、工具层（对照 claude-code src/tools/）
 │   │   ├── registry.py                工具 Schema 池 + execute 分派
-│   │   └── file_tools.py              文件工具实现
+│   │   └── file_tools.py              read_file / write_file / edit_file
 │   │
-│   └── logging/                       六、日志提示层（诊断提示/事件通知）
-│       ├── __init__.py
-│       └── events.py                  事件提示函数（裁剪/预算/额度/工具/轮次）
+│   └── utils/                         六、工具函数层（对照 claude-code src/utils/）
+│       ├── __init__.py                包入口（聚合导出）
+│       ├── config.py                  本地配置文件加载（对照 src/utils/config.ts）
+│       └── logging.py                 日志提示层（对照 errorLogSink.ts 类比）
 │
 ├── tests/                             34 项单元测试（test_agent_loop / cli / config / tools / logging）
 ├── docs/                              开发规范文档（本文件 + HTML 版）
@@ -162,9 +161,9 @@ article a:hover { text-decoration: underline; }
 <ol>
 <li><strong>所有 Python 文件必须放在对应模块文件夹中</strong>，一个文件一个职责，禁止散落的顶层 .py。</li>
 <li>新增/移动模块后，<strong>必须同步更新所有文件头 docstring 里的框架树</strong>（统一脚本或手工）。</li>
-<li>包内 <code class="inline-code">__init__.py</code> 聚合导出，外部统一从包导入（如 <code class="inline-code">from hello_llm.providers import ModelConfig</code>）。</li>
-<li>依赖方向单向：entrypoints → query / config → providers / tools → logging；logging 无依赖（可被任何层引用）。</li>
-<li>模型/工具等实现类模块内部可拆子包（config / types / client 等），命名对齐 clawcodex（如 providers/openai_compatible.py）。</li>
+<li>包内 <code class="inline-code">__init__.py</code> 聚合导出，外部统一从包导入（如 <code class="inline-code">from hello_llm.services.api import ModelConfig</code>）。</li>
+<li>依赖方向单向：entrypoints → query / services/api → tools → utils；utils 无依赖（可被任何层引用）。</li>
+<li>模型/工具等实现类模块内部可拆子包（config / types / client 等），命名对齐 claude-code 源码（如 services/api/claude.py 对照 claude.ts）。</li>
 <li>关键模块可被测试注入（call_model / execute_tool / stream_model 均为注入点），便于 mock 测试。</li>
 </ul>
 <h2 id="四-注释要求">四、注释要求</h2>
@@ -186,7 +185,7 @@ article a:hover { text-decoration: underline; }
 <ol>
 <li><strong>未配置 API Key</strong> — CLI 启动 fail-fast：<code class="inline-code">[配置错误]</code> + 完整配置指引，退出码 1，不发网络请求</li>
 <li><strong>HTTP 错误（401/400/429…）</strong> — <code class="inline-code">[模型错误] HTTP xxx: &lt;服务端错误体&gt;</code>；429 额外输出额度提示</li>
-<li><strong>请求超时</strong> — 分类提示 + <code class="inline-code">--timeout</code> 调大建议（注意 socket.timeout 需单独捕获）</li>
+<li><strong>请求超时</strong> — 分类提示 + <code class="inline-code">--timeout</code> 调大建议（注意 socket.timeout 需单独捕获）；network/timeout 类错误由 agent_loop <strong>自动重试最多 3 次</strong>（递增退避 1s/2s），http 类不重试</li>
 <li><strong>网络错误（DNS/连接拒绝）</strong> — <code class="inline-code">[模型错误] 网络错误: &lt;原因&gt;</code></li>
 <li><strong>REPL 流式中 Ctrl-C</strong> — 中止本轮（<code class="inline-code">[已中止本轮]</code>），回到输入提示，不退出程序</li>
 <li><strong>模型空回复</strong> — 显式提示，杜绝"输入后没反应"的错觉</li>
@@ -205,13 +204,13 @@ article a:hover { text-decoration: underline; }
 </ul>
 <ul>
 <li>输出到 <strong>stderr</strong>（不污染 stdout 答案），flush 即时上屏，任何运行模式（含 --no-stream）可见。</li>
-<li>事件函数集中在 <code class="inline-code">logging/events.py</code>（notice / warn / error / tool + 业务事件函数），由各层接入。</li>
+<li>事件函数集中在 <code class="inline-code">utils/logging.py</code>（notice / warn / error / tool + 业务事件函数），由各层接入。</li>
 <li>新增限制/异常事件必须走日志层，禁止裸 print 或无提示。</li>
 </ul>
 <h2 id="七-配置规范">七、配置规范</h2>
 <ol>
 <li><strong>API key 不写死在代码中，不读环境变量</strong>（VS Code F5 调试不加载 shell 配置，环境变量方案不可靠）。</li>
-<li>唯一本地来源：配置文件 <code class="inline-code">~/.hellollm/config.json</code>（JSON），独立加载模块 <code class="inline-code">config/loader.py</code>。</li>
+<li>唯一本地来源：配置文件 <code class="inline-code">~/.hellollm/config.json</code>（JSON），独立加载模块 <code class="inline-code">utils/config.py</code>（对照 claude-code src/utils/config.ts）。</li>
 </ul>
 <pre class="code-block"><code class="language-json">{
   &quot;api_key&quot;: &quot;sk-...&quot;,
@@ -238,7 +237,7 @@ article a:hover { text-decoration: underline; }
 </ul>
 <h2 id="九-新增模块开发-checklist">九、新增模块开发 Checklist</h2>
 <ol>
-<li>确定模块归属层（entrypoints / query / config / providers / tools / logging），放入 <code class="inline-code">S01-basic-loop/hello_llm/</code> 对应文件夹；</li>
+<li>确定模块归属层（entrypoints / query / services/api / tools / utils），放入 <code class="inline-code">S01-basic-loop/hello_llm/</code> 对应文件夹；</li>
 <li>文件头 docstring：模块职责 + 完整框架树 + <code class="inline-code">★★★ 本模块位置 ★★★</code> + 缩略词说明；</li>
 <li>每个函数：编号 docstring（一、功能 二、参数 三、返回）；缩写变量声明处注释；import 注释；</li>
 <li>包内 <code class="inline-code">__init__.py</code> 聚合导出，更新各文件框架树；</li>

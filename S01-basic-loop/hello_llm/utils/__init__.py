@@ -1,14 +1,15 @@
-"""HelloLLM — 最简可交互 AI 编码 Agent（包入口）。
+"""模块：utils —— 工具层（包），对照 claude-code 源码 src/utils/。
 
 ====================================================================
 HelloLLM 项目框架结构（S01-basic-loop，论文图1 七组件模型 → 模块映射）
 
 S01-basic-loop/
 └── hello_llm/                            # Python 包
-    ├── __init__.py                       包入口：版本号 + 项目说明 + 全局术语表 ★★★ 本模块 ★★★
+    ├── __init__.py                       包入口：版本号 + 项目说明 + 全局术语表
     ├── __main__.py                       python -m hello_llm 入口
     │
     ├── entrypoints/                      一、交互表面层（图1 "Interfaces"，对照 src/entrypoints/）
+    │   ├── __init__.py
     │   ├── cli.py                        CLI 入口（对照 src/entrypoints/cli.tsx）
     │   ├── repl.py                       交互 REPL（多轮对话）
     │   ├── headless.py                   无头单次（对照 claude -p）
@@ -32,29 +33,42 @@ S01-basic-loop/
     │   └── file_tools.py                 read_file / write_file / edit_file 实现
     │
     └── utils/                            六、工具函数层（对照 src/utils/：config.ts 等）
-        ├── __init__.py
+        ├── __init__.py                   ★★★ 本模块：包入口（聚合导出）★★★
         ├── config.py                     本地配置文件加载（对照 src/utils/config.ts）
-        └── logging.py                    日志提示层（对照 src/utils/ 的日志模块）缩略词术语表（本项目出现即按此解释）：
-    1.  CLI —— Command-Line Interface，命令行接口
-    2.  REPL —— Read-Eval-Print Loop，读取-求值-打印循环（交互式对话界面）
-    3.  Agent —— 智能体（能自主调用工具完成任务循环的程序）
-    4.  Agent-Loop —— 智能体循环（模型调用/工具分派/结果收集的迭代周期）
-    5.  API —— Application Programming Interface，应用程序编程接口
-    6.  SSE —— Server-Sent Events，服务器推送事件（HTTP 流式协议，逐块推送）
-    7.  JSON —— JavaScript Object Notation，轻量数据交换格式
-    8.  Schema —— 结构定义；工具参数 Schema = 参数结构约束（JSON Schema 子集）
-    9.  HTTP —— HyperText Transfer Protocol，超文本传输协议
-    10. Bearer —— HTTP 鉴权方案（Authorization: Bearer <token>）
-    11. TTY —— Teletype，终端设备；isatty() = 判断 stdin 是否为交互终端
-    12. ANSI —— 转义序列：终端颜色/样式控制码（如 \\033[2m 暗淡字体）
-    13. DNS —— Domain Name System，域名系统
-    14. URL —— Uniform Resource Locator，统一资源定位符
-    15. ReAct —— Reasoning + Acting：推理与行动交替的智能体模式（论文 §4.1）
-    16. ID —— Identifier，标识符
-    17. UTF-8 —— 8-bit Unicode Transformation Format，可变长字符编码
-    18. EOF —— End of File，文件结束（终端 Ctrl-D 触发 EOFError）
-    19. MCP —— Model Context Protocol，模型上下文协议（论文 §6 扩展机制，后续版本引入）
-    20. F5 —— VS Code 调试启动快捷键（指代调试入口；不加载 shell 配置文件）
+        └── logging.py                    日志提示层（对照 src/utils/ 的日志模块）
+====================================================================
+
+缩略词说明（本模块涉及的术语）：
+    1. CLI —— Command-Line Interface，命令行接口
+    2. Agent-Loop —— 智能体循环（模型调用/工具分派/结果收集的迭代周期）
 """
 
-__version__ = "0.1.0"
+from .config import find_config_path, load_config, build_model_config  # 本地配置文件加载
+from .logging import (  # 日志提示层：业务事件通知
+    notice,  # 信息级提示（青色 ℹ）
+    warn,  # 警告级提示（黄色 ⚠）
+    error,  # 错误级提示（红色 ✖）
+    tool,  # 工具级提示（紫色 ⚙）
+    loop_turn,  # Agent-Loop 轮次提示
+    tool_triggered,  # 工具触发提示
+    tool_result_summary,  # 工具执行结果提示
+    context_trimmed,  # 上下文裁剪提示（超预算）
+    max_turns_reached,  # 最大轮数提示（循环限制）
+    rate_limited,  # 额度/频率限制提示（HTTP 429）
+)
+
+__all__ = [
+    "find_config_path",
+    "load_config",
+    "build_model_config",
+    "notice",
+    "warn",
+    "error",
+    "tool",
+    "loop_turn",
+    "tool_triggered",
+    "tool_result_summary",
+    "context_trimmed",
+    "max_turns_reached",
+    "rate_limited",
+]

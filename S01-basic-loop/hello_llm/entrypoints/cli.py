@@ -1,44 +1,40 @@
 """模块：entrypoints/cli.py —— CLI 入口层（薄壳）。
 
 ====================================================================
-HelloLLM 项目框架结构（v1，论文图1 七组件模型 → 模块映射）
+HelloLLM 项目框架结构（S01-basic-loop，论文图1 七组件模型 → 模块映射）
 
-hello_llm/
-├── __init__.py                 包入口：版本号 + 项目说明
-├── __main__.py                 python -m hello_llm 入口
-│
-├── entrypoints/                一、交互表面层（图1 "Interfaces"）
-│   ├── __init__.py
-│   ├── cli.py                  ★★★ 本模块：CLI 入口（argparse+校验+分派）★★★
-│   ├── repl.py                 交互 REPL（多轮对话）
-│   ├── headless.py             无头单次（对照 claude -p）
-│   └── render.py               Agent-Loop 事件渲染
-│
-├── query/                      二、核心层（图1 "Agent Loop"）
-│   ├── __init__.py
-│   └── agent_loop.py           query_loop() 生成器 + Conversation
-│
-├── config/                     三、配置层（本地配置文件）
-│   ├── __init__.py
-│   └── loader.py               ~/.hellollm/config.json 定位/解析/合并
-│
-├── providers/                  四、模型提供商层（Agent-Loop 的 callModel）
-│   ├── __init__.py
-│   ├── config.py               ModelConfig 模型调用配置（含 API key 校验）
-│   ├── types.py                数据结构与异常
-│   ├── openai_compatible.py    stream_chat：SSE 流式客户端
-│   └── client.py               consume_stream + call_model：流式事件聚合
-│
-├── tools/                      五、工具层（Agent-Loop 的 execute 路径）
-    ├── __init__.py
-    ├── registry.py             工具 Schema 池 + execute 分派
-    └── file_tools.py           文件工具实现
-│
-└── logging/                    六、日志提示层（诊断提示/事件通知）
-    ├── __init__.py
-    └── events.py               事件提示函数（裁剪/预算/额度/工具）
-====================================================================
-缩略词说明（本模块涉及的术语）：
+S01-basic-loop/
+└── hello_llm/                            # Python 包
+    ├── __init__.py                       包入口：版本号 + 项目说明 + 全局术语表
+    ├── __main__.py                       python -m hello_llm 入口
+    │
+    ├── entrypoints/                      一、交互表面层（图1 "Interfaces"，对照 src/entrypoints/）
+    │   ├── cli.py                        CLI 入口（对照 src/entrypoints/cli.tsx）★★★ 本模块 ★★★
+    │   ├── repl.py                       交互 REPL（多轮对话）
+    │   ├── headless.py                   无头单次（对照 claude -p）
+    │   └── render.py                     Agent-Loop 事件渲染
+    │
+    ├── query/                            二、核心层（图1 "Agent Loop"，对照 src/query/）
+    │   ├── __init__.py
+    │   └── agent_loop.py                 query_loop() 生成器 + Conversation（对照 queryLoop）
+    │
+    ├── services/                         三、服务层（对照 src/services/）
+    │   └── api/                          四、API 客户端（对照 src/services/api/）
+    │       ├── __init__.py
+    │       ├── config.py                 ModelConfig 模型调用配置（含 API key 校验）
+    │       ├── types.py                  数据结构与异常
+    │       ├── claude.py                 stream_chat：SSE 流式客户端（对照 claude.ts）
+    │       └── client.py                 consume_stream + call_model（对照 client.ts）
+    │
+    ├── tools/                            五、工具层（对照 src/tools/：FileReadTool 等）
+    │   ├── __init__.py
+    │   ├── registry.py                   工具 Schema 池 + execute 分派（对照 tools.ts）
+    │   └── file_tools.py                 read_file / write_file / edit_file 实现
+    │
+    └── utils/                            六、工具函数层（对照 src/utils/：config.ts 等）
+        ├── __init__.py
+        ├── config.py                     本地配置文件加载（对照 src/utils/config.ts）
+        └── logging.py                    日志提示层（对照 src/utils/ 的日志模块）缩略词说明（本模块涉及的术语）：
     1.  CLI —— Command-Line Interface，命令行接口（本模块即 CLI 入口）
     2.  API —— Application Programming Interface，应用程序编程接口
     3.  REPL —— Read-Eval-Print Loop，读取-求值-打印循环（由 repl.py 提供）
@@ -66,14 +62,14 @@ if __package__ in (None, ""):
     if _PROJECT_ROOT not in sys.path:
         sys.path.insert(0, _PROJECT_ROOT)  # 让 `import hello_llm` 可解析
     from hello_llm import __version__  # 版本号（--version 用）
-    from hello_llm.config.loader import build_model_config, find_config_path  # 配置文件加载
+    from hello_llm.utils.config import build_model_config, find_config_path  # 配置文件加载
     from hello_llm.entrypoints.headless import run_headless  # 无头模式
     from hello_llm.entrypoints.repl import run_repl  # 交互 REPL
-    from hello_llm.providers import ConfigError, ModelConfig, DEFAULT_SYSTEM  # 配置/异常
+    from hello_llm.services.api import ConfigError, ModelConfig, DEFAULT_SYSTEM  # 配置/异常
 else:
     from .. import __version__  # 版本号（--version 用）
-    from ..config.loader import build_model_config, find_config_path  # 配置文件加载
-    from ..providers import ConfigError, ModelConfig, DEFAULT_SYSTEM  # 配置与配置错误
+    from ..utils.config import build_model_config, find_config_path  # 配置文件加载
+    from ..services.api import ConfigError, ModelConfig, DEFAULT_SYSTEM  # 配置与配置错误
     from .headless import run_headless  # 无头模式（单次提问，对照 claude -p）
     from .repl import run_repl  # 交互 REPL（多轮对话）
 

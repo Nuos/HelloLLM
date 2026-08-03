@@ -13,7 +13,7 @@ import json
 
 import pytest
 
-from hello_llm.providers import ModelResponse, ToolCall
+from hello_llm.services.api import ModelError, ModelResponse, ToolCall
 from hello_llm.query.agent_loop import Conversation, query_loop
 
 
@@ -230,3 +230,72 @@ def test_trim_keeps_tool_pairs_intact():
     conv.add_user("最新提问内容")
     _assert_protocol_valid(conv.messages)
     assert conv.messages[-1]["role"] == "user"  # 最新提问必须保留
+
+
+# 五、网络自动重试（S01 自动重试：network/timeout 重试，http 不重试）
+
+
+def test_network_error_auto_retries_then_succeeds():
+    """network 类错误：自动重试后成功（重试上限内）。"""
+    state = {"calls": 0}  # state：假模型调用计数
+
+    def flaky(messages, tools, cfg):  # flaky：前 2 次抛网络错误，第 3 次成功
+        state["calls"] += 1
+        if state["calls"] < 3:
+            raise ModelError("网络错误: Connection reset by peer", kind="network")
+        return ModelResponse(text="重试后成功")
+
+    conv = Conversation("sys")
+    conv.add_user("q")
+    events = list(query_loop(conv, max_turns=2, call_model=flaky))
+    texts = [e["text"] for e in events if e["type"] == "text_delta"]
+    assert texts == ["重试后成功"]  # 重试后正常产出
+    assert state["calls"] == 3  # 共调用 3 次（1 次原始 + 2 次重试）
+
+
+def test_timeout_error_auto_retries():
+    """timeout 类错误：同样自动重试。"""
+    state = {"calls": 0}
+
+    def flaky(messages, tools, cfg):  # flaky：首次超时，第二次成功
+        state["calls"] += 1
+        if state["calls"] == 1:
+            raise ModelError("请求超时（>120 秒）", kind="timeout")
+        return ModelResponse(text="超时后成功")
+
+    conv = Conversation("sys")
+    conv.add_user("q")
+    events = list(query_loop(conv, max_turns=2, call_model=flaky))
+    texts = [e["text"] for e in events if e["type"] == "text_delta"]
+    assert texts == ["超时后成功"]
+    assert state["calls"] == 2
+
+
+def test_http_error_not_retried():
+    """http 类错误（400/401/429）：不重试，直接抛出。"""
+    state = {"calls": 0}
+
+    def bad(messages, tools, cfg):  # bad：每次抛 HTTP 错误
+        state["calls"] += 1
+        raise ModelError("HTTP 400: bad request", kind="http")
+
+    conv = Conversation("sys")
+    conv.add_user("q")
+    with pytest.raises(ModelError):
+        list(query_loop(conv, max_turns=2, call_model=bad))
+    assert state["calls"] == 1  # 只调用 1 次（不重试）
+
+
+def test_retry_exhausted_raises():
+    """network 错误重试耗尽：最终抛出（不无限重试）。"""
+    state = {"calls": 0}
+
+    def always_fail(messages, tools, cfg):  # always_fail：永远网络错误
+        state["calls"] += 1
+        raise ModelError("网络错误: timeout", kind="network")
+
+    conv = Conversation("sys")
+    conv.add_user("q")
+    with pytest.raises(ModelError):
+        list(query_loop(conv, max_turns=2, call_model=always_fail))
+    assert state["calls"] == 3  # 最多 3 次尝试（MAX_NETWORK_RETRIES，含 2 次重试）

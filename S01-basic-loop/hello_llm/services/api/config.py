@@ -1,44 +1,40 @@
-"""模块：providers/config.py —— 模型调用配置 ModelConfig。
+"""模块：services/api/config.py —— 模型调用配置 ModelConfig。
 
 ====================================================================
-HelloLLM 项目框架结构（v1，论文图1 七组件模型 → 模块映射）
+HelloLLM 项目框架结构（S01-basic-loop，论文图1 七组件模型 → 模块映射）
 
-hello_llm/
-├── __init__.py                 包入口：版本号 + 项目说明
-├── __main__.py                 python -m hello_llm 入口
-│
-├── entrypoints/                一、交互表面层（图1 "Interfaces"）
-│   ├── __init__.py
-│   ├── cli.py                  CLI 入口：argparse + 配置校验 + 分派
-│   ├── repl.py                 交互 REPL（多轮对话）
-│   ├── headless.py             无头单次（对照 claude -p）
-│   └── render.py               Agent-Loop 事件渲染
-│
-├── query/                      二、核心层（图1 "Agent Loop"）
-│   ├── __init__.py
-│   └── agent_loop.py           query_loop() 生成器 + Conversation
-│
-├── config/                     三、配置层（本地配置文件）
-│   ├── __init__.py
-│   └── loader.py               ~/.hellollm/config.json 定位/解析/合并
-│
-├── providers/                  四、模型提供商层（Agent-Loop 的 callModel）
-│   ├── __init__.py
-│   ├── config.py               ★★★ 本模块：ModelConfig 模型调用配置 ★★★
-│   ├── types.py                数据结构与异常
-│   ├── openai_compatible.py    stream_chat：SSE 流式客户端
-│   └── client.py               consume_stream + call_model：流式事件聚合
-│
-├── tools/                      五、工具层（Agent-Loop 的 execute 路径）
-    ├── __init__.py
-    ├── registry.py             工具 Schema 池 + execute 分派
-    └── file_tools.py           文件工具实现
-│
-└── logging/                    六、日志提示层（诊断提示/事件通知）
-    ├── __init__.py
-    └── events.py               事件提示函数（裁剪/预算/额度/工具）
-====================================================================
-缩略词说明（本模块涉及的术语）：
+S01-basic-loop/
+└── hello_llm/                            # Python 包
+    ├── __init__.py                       包入口：版本号 + 项目说明 + 全局术语表
+    ├── __main__.py                       python -m hello_llm 入口
+    │
+    ├── entrypoints/                      一、交互表面层（图1 "Interfaces"，对照 src/entrypoints/）
+    │   ├── cli.py                        CLI 入口（对照 src/entrypoints/cli.tsx）
+    │   ├── repl.py                       交互 REPL（多轮对话）
+    │   ├── headless.py                   无头单次（对照 claude -p）
+    │   └── render.py                     Agent-Loop 事件渲染
+    │
+    ├── query/                            二、核心层（图1 "Agent Loop"，对照 src/query/）
+    │   ├── __init__.py
+    │   └── agent_loop.py                 query_loop() 生成器 + Conversation（对照 queryLoop）
+    │
+    ├── services/                         三、服务层（对照 src/services/）
+    │   └── api/                          四、API 客户端（对照 src/services/api/）
+    │       ├── __init__.py
+    │       ├── config.py                 ModelConfig 模型调用配置（含 API key 校验）★★★ 本模块 ★★★
+    │       ├── types.py                  数据结构与异常
+    │       ├── claude.py                 stream_chat：SSE 流式客户端（对照 claude.ts）
+    │       └── client.py                 consume_stream + call_model（对照 client.ts）
+    │
+    ├── tools/                            五、工具层（对照 src/tools/：FileReadTool 等）
+    │   ├── __init__.py
+    │   ├── registry.py                   工具 Schema 池 + execute 分派（对照 tools.ts）
+    │   └── file_tools.py                 read_file / write_file / edit_file 实现
+    │
+    └── utils/                            六、工具函数层（对照 src/utils/：config.ts 等）
+        ├── __init__.py
+        ├── config.py                     本地配置文件加载（对照 src/utils/config.ts）
+        └── logging.py                    日志提示层（对照 src/utils/ 的日志模块）缩略词说明（本模块涉及的术语）：
     1.  API —— Application Programming Interface，应用程序编程接口
     2.  JSON —— JavaScript Object Notation，轻量数据交换格式（配置文件格式）
     3.  F5 —— VS Code 调试启动快捷键（指代调试入口；不加载 shell 配置）
@@ -62,7 +58,7 @@ DEFAULT_SYSTEM = (
     "with tools. Be concise. When a task involves files, use the tools."
 )
 
-# 三、配置文件默认路径（错误提示用；实际定位逻辑在 config/loader.py）
+# 三、配置文件默认路径（错误提示用；实际定位逻辑在 utils/config.py）
 DEFAULT_CONFIG_PATH = "~/.hellollm/config.json"
 
 
@@ -72,8 +68,8 @@ class ModelConfig:
 
     一、功能作用
         聚合一次模型调用所需的全部参数（端点/密钥/模型/超时），
-        由 config/loader.py 按"命令行 > 配置文件 > 默认值"合并后构建，
-        供 providers/openai_compatible.py 发起请求使用。
+        由 utils/config.py 按"命令行 > 配置文件 > 默认值"合并后构建，
+        供 services/api/claude.py 发起请求使用。
 
     二、字段说明
         api_base      （str）OpenAI 兼容端点，如 https://api.deepseek.com
@@ -81,7 +77,7 @@ class ModelConfig:
         model         （str）模型名，如 deepseek-v4-flash / deepseek-v4-pro
         timeout       （float|None）HTTP 超时秒数；None=由配置文件/默认值决定
         max_tokens    （int|None）单次输出 token 上限；None 交给服务端默认
-        file_config   （dict）配置文件内容（由 config/loader.py 注入；
+        file_config   （dict）配置文件内容（由 utils/config.py 注入；
                       repr=False 防止打印配置时泄露 api_key）
 
     三、配置优先级

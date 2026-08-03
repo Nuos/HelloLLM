@@ -6,10 +6,11 @@
 
 ```
 HelloLLM/
-└── S01-basic-loop/             # 阶段一：CLI 入口层 + Agent-Loop（完整项目）
-    ├── hello_llm/              #   Python 包（entrypoints / query / config / providers / tools / logging）
-    ├── tests/                  #   34 项单元测试
-    ├── docs/                   #   开发规范文档（带可伸缩侧边导航）
+├── S01-basic-loop/             # 阶段一：CLI 入口层 + Agent-Loop（完整项目）
+└── S02-basic-permission/       # 阶段二：S01 fork + Permission System 最小子集（完整项目）
+    ├── hello_llm/              #   Python 包（entrypoints / query / config / providers / tools / logging / permissions）
+    ├── tests/                  #   47 项单元测试
+    ├── docs/                   #   开发规范文档（v2.0，带可伸缩侧边导航）
     ├── pyproject.toml          #   项目配置
     ├── README.md               #   项目说明
     └── requirements.txt        #   运行时零第三方依赖（纯标准库）

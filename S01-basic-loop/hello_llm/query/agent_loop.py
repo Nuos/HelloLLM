@@ -1,44 +1,40 @@
 """模块：query/agent_loop.py —— Agent-Loop 核心查询循环。
 
 ====================================================================
-HelloLLM 项目框架结构（v1，论文图1 七组件模型 → 模块映射）
+HelloLLM 项目框架结构（S01-basic-loop，论文图1 七组件模型 → 模块映射）
 
-hello_llm/
-├── __init__.py                 包入口：版本号 + 项目说明
-├── __main__.py                 python -m hello_llm 入口
-│
-├── entrypoints/                一、交互表面层（图1 "Interfaces"）
-│   ├── __init__.py
-│   ├── cli.py                  CLI 入口：argparse + 配置校验 + 分派
-│   ├── repl.py                 交互 REPL（多轮对话）
-│   ├── headless.py             无头单次（对照 claude -p）
-│   └── render.py               Agent-Loop 事件渲染
-│
-├── query/                      二、核心层（图1 "Agent Loop"）
-│   ├── __init__.py
-│   └── agent_loop.py           ★★★ 本模块：query_loop() + Conversation ★★★
-│
-├── config/                     三、配置层（本地配置文件）
-│   ├── __init__.py
-│   └── loader.py               ~/.hellollm/config.json 定位/解析/合并
-│
-├── providers/                  四、模型提供商层（Agent-Loop 的 callModel）
-│   ├── __init__.py
-│   ├── config.py               ModelConfig 模型调用配置（含 API key 校验）
-│   ├── types.py                数据结构与异常
-│   ├── openai_compatible.py    stream_chat：SSE 流式客户端
-│   └── client.py               consume_stream + call_model：流式事件聚合
-│
-├── tools/                      五、工具层（Agent-Loop 的 execute 路径）
-    ├── __init__.py
-    ├── registry.py             工具 Schema 池 + execute 分派
-    └── file_tools.py           文件工具实现
-│
-└── logging/                    六、日志提示层（诊断提示/事件通知）
-    ├── __init__.py
-    └── events.py               事件提示函数（裁剪/预算/额度/工具）
-====================================================================
-缩略词说明（本模块涉及的术语）：
+S01-basic-loop/
+└── hello_llm/                            # Python 包
+    ├── __init__.py                       包入口：版本号 + 项目说明 + 全局术语表
+    ├── __main__.py                       python -m hello_llm 入口
+    │
+    ├── entrypoints/                      一、交互表面层（图1 "Interfaces"，对照 src/entrypoints/）
+    │   ├── cli.py                        CLI 入口（对照 src/entrypoints/cli.tsx）
+    │   ├── repl.py                       交互 REPL（多轮对话）
+    │   ├── headless.py                   无头单次（对照 claude -p）
+    │   └── render.py                     Agent-Loop 事件渲染
+    │
+    ├── query/                            二、核心层（图1 "Agent Loop"，对照 src/query/）
+    │   ├── __init__.py
+    │   └── agent_loop.py                 query_loop() 生成器 + Conversation（对照 queryLoop）★★★ 本模块 ★★★
+    │
+    ├── services/                         三、服务层（对照 src/services/）
+    │   └── api/                          四、API 客户端（对照 src/services/api/）
+    │       ├── __init__.py
+    │       ├── config.py                 ModelConfig 模型调用配置（含 API key 校验）
+    │       ├── types.py                  数据结构与异常
+    │       ├── claude.py                 stream_chat：SSE 流式客户端（对照 claude.ts）
+    │       └── client.py                 consume_stream + call_model（对照 client.ts）
+    │
+    ├── tools/                            五、工具层（对照 src/tools/：FileReadTool 等）
+    │   ├── __init__.py
+    │   ├── registry.py                   工具 Schema 池 + execute 分派（对照 tools.ts）
+    │   └── file_tools.py                 read_file / write_file / edit_file 实现
+    │
+    └── utils/                            六、工具函数层（对照 src/utils/：config.ts 等）
+        ├── __init__.py
+        ├── config.py                     本地配置文件加载（对照 src/utils/config.ts）
+        └── logging.py                    日志提示层（对照 src/utils/ 的日志模块）缩略词说明（本模块涉及的术语）：
     1.  Agent-Loop —— 智能体循环（本模块即其实现）
     2.  ReAct —— Reasoning + Acting：推理与行动交替的智能体模式（论文 §4.1）
     3.  API —— Application Programming Interface，应用程序编程接口
@@ -48,17 +44,47 @@ hello_llm/
 from __future__ import annotations  # 延迟求值注解
 
 import json  # 工具参数在 OpenAI 协议里是 JSON 字符串，序列化用
+import time  # 自动重试的递增退避等待（1s/2s/…）
 from typing import Any, Callable, Iterator, Optional  # 类型标注
 
-from ..logging import (  # 日志提示层：业务事件通知（裁剪/轮次/工具/限制）
+from ..utils import (  # 日志提示层：业务事件通知（裁剪/轮次/工具/限制）
     context_trimmed,  # 上下文裁剪提示（超预算）
     loop_turn,  # Agent-Loop 轮次提示
     max_turns_reached,  # 最大轮数提示（循环限制）
     tool_result_summary,  # 工具执行结果提示
     tool_triggered,  # 工具触发提示
+    warn as log_warn,  # 警告级提示（自动重试通知）
 )
-from ..providers import consume_stream, ModelConfig, ModelResponse  # 模型层：流式聚合/配置/响应
+from ..services.api import consume_stream, ModelConfig, ModelError, ModelResponse  # 模型层：流式聚合/配置/响应
 from ..tools import TOOLS, execute  # 工具层：默认工具池 / 工具执行
+
+# 一、网络自动重试上限（对齐用户"重试解决"偏好的有界版）
+#     仅 network / timeout 类错误重试（http 重试无益，直接抛出）
+MAX_NETWORK_RETRIES = 3  # 每轮模型调用最多自动重试次数（含首次共 4 次尝试）
+
+
+def _retry_network(fn: Callable[[], Any], label: str = "模型调用") -> Any:
+    """函数：网络类错误自动重试包装（聚合通道用）。
+
+    一、功能作用
+        call_model 聚合调用失败（连接重置/超时）时自动重试，
+        避免用户手动反复重发；http 类错误不重试（重试无益）。
+
+    二、参数
+        fn    （Callable）无参调用（闭包捕获 msgs/tools/cfg）
+        label （str）日志提示前缀（如"模型调用"）
+
+    三、返回
+        fn() 的结果；重试耗尽后原样抛出 ModelError。
+    """
+    for attempt in range(1, MAX_NETWORK_RETRIES + 1):
+        try:
+            return fn()
+        except ModelError as e:  # e：模型调用异常（含 kind 分类）
+            if e.kind not in ("network", "timeout") or attempt == MAX_NETWORK_RETRIES:
+                raise  # 非网络错误 / 已达上限 → 原样抛出（render 层转为中文提示）
+            log_warn(f"{label}网络错误（{e}），自动重试 {attempt}/{MAX_NETWORK_RETRIES}…")
+            time.sleep(attempt)  # 递增退避：第 1 次等 1s，第 2 次等 2s
 
 # 一、默认值
 DEFAULT_MAX_CONTEXT_CHARS = 30_000  # 滑动窗口上限（字符）：超出裁剪最老消息
@@ -169,14 +195,14 @@ def call_model_fallback(
     """函数：默认聚合版模型调用（query_loop 的 call_model 注入点默认值）。
 
     一、功能作用
-        包一层 providers/client.call_model，使 query_loop 的默认参数
+        包一层 services/api/client.call_model，使 query_loop 的默认参数
         无需在定义处直接依赖具体实现，测试可注入假模型替换。
 
     二、注意
         必须定义在 query_loop 之前 —— Python 在 def 语句执行时求值默认参数，
         若在其后定义会触发 NameError。
     """
-    from ..providers import call_model  # 延迟导入：避免模块级循环依赖
+    from ..services.api import call_model  # 延迟导入：避免模块级循环依赖
 
     return call_model(messages, tools, cfg)
 
@@ -234,16 +260,26 @@ def query_loop(
         if stream_model is not None:
             # 流式通道：consume_stream 边转发增量边聚合，最终产出 ModelResponse
             response: Optional[ModelResponse] = None  # response：本轮聚合结果
-            for event in consume_stream(
-                stream_model(msgs, tool_schemas, conversation.cfg)
-            ):
-                if event["type"] == "model_response":
-                    response = event["response"]
-                else:
-                    yield event  # text_delta / reasoning_delta 原样转发给 UI 层
+            for attempt in range(1, MAX_NETWORK_RETRIES + 1):  # attempt：重试计数
+                try:
+                    for event in consume_stream(
+                        stream_model(msgs, tool_schemas, conversation.cfg)
+                    ):
+                        if event["type"] == "model_response":
+                            response = event["response"]
+                        else:
+                            yield event  # text_delta / reasoning_delta 原样转发给 UI 层
+                    break  # 流正常结束（无异常）→ 退出重试循环
+                except ModelError as e:  # e：模型调用异常
+                    if e.kind not in ("network", "timeout") or attempt == MAX_NETWORK_RETRIES:
+                        raise  # 非网络错误 / 已达上限 → 原样抛出
+                    log_warn(f"流式模型调用网络错误（{e}），自动重试 {attempt}/{MAX_NETWORK_RETRIES}…")
+                    time.sleep(attempt)  # 递增退避：第 1 次等 1s，第 2 次等 2s
         else:
             # 聚合通道：一次性拿到完整响应（测试注入的假模型走这里）
-            response = call_model(msgs, tool_schemas, conversation.cfg)
+            response = _retry_network(
+                lambda: call_model(msgs, tool_schemas, conversation.cfg)  # 闭包：重试时重新调用
+            )
             if response.text:
                 yield {"type": "text_delta", "text": response.text}
 

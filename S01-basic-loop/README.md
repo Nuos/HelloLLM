@@ -12,11 +12,11 @@ v1 只保留其中两个模块，其余留待后续版本逐步添加：
 |------|----------|------|
 | CLI 入口层 | 图1 "Interfaces"（交互式 CLI / 无头 CLI） | `hello_llm/entrypoints/`（cli / repl / headless / render） |
 | Agent-Loop | 图1 "Agent Loop"（§4.1 查询流水线、图5 伪代码） | `hello_llm/query/agent_loop.py` |
-| （模型客户端） | Agent-Loop 的 deps.callModel() 内部依赖 | `hello_llm/providers/`（config / types / openai_compatible / client） |
-| （本地配置） | 配置来源（API key 等） | `hello_llm/config/loader.py` |
+| （模型客户端） | Agent-Loop 的 deps.callModel() 内部依赖 | `hello_llm/services/api/`（config / types / claude / client） |
+| （本地配置） | 配置来源（API key 等） | `hello_llm/utils/config.py` |
 | （文件工具） | Agent-Loop 的 execute 路径 | `hello_llm/tools/`（registry / file_tools） |
 
-目录结构参考 clawcodex（Python 移植版）源码分层：`entrypoints / query / providers / config / tools / logging`。
+目录结构参考 claude-code 源码（restored-src/src）分层：`entrypoints / query / services/api / tools / utils`。
 
 ## 日志提示层（logging/）
 
@@ -30,8 +30,8 @@ v1 只保留其中两个模块，其余留待后续版本逐步添加：
 | `⚠` 黄色 | 警告 | `上下文超预算：…已裁剪 N 条最老消息` / `达到最大轮数限制（N 轮）` / `模型未返回内容` |
 | `✖` 红色 | 错误 | `工具失败：read_file → 错误：…` / `额度/频率限制：HTTP 429…` / `[模型错误] …` |
 
-实现位置：`hello_llm/logging/events.py`（事件提示函数），由 `query/agent_loop.py`
-（轮次/工具/裁剪/轮数）、`providers/openai_compatible.py`（429 额度）、
+实现位置：`hello_llm/utils/logging.py`（事件提示函数），由 `query/agent_loop.py`
+（轮次/工具/裁剪/轮数）、`services/api/claude.py`（429 额度）、
 `entrypoints/render.py`（空回复）统一接入。
 
 **未包含**（后续版本）：权限系统、MCP、记忆、上下文压缩、会话持久化、Hook、子 Agent。
@@ -46,7 +46,11 @@ v1 只保留其中两个模块，其余留待后续版本逐步添加：
 | 网络错误（DNS/连接拒绝） | `[模型错误] 网络错误: <原因>` |
 | REPL 流式中 Ctrl-C | 中止本轮（`[已中止本轮]`），回到输入提示，不退出程序 |
 | 模型返回空内容 | 显式提示 `[模型未返回内容]`，不静默 |
+| 网络错误 / 超时 | **自动重试最多 3 次**（递增退避 1s/2s），`⚠ 网络错误（…），自动重试 n/3…`；耗尽后 `[模型错误]` |
 | 其他未知异常 | `[内部错误] <类型>: <信息>` 兜底，杜绝静默失败 |
+
+> ⚠ **网络自动重试**：`network`/`timeout` 类错误自动重试（`MAX_NETWORK_RETRIES=3`），
+> `http` 类（400/401/429）不重试（重试无益）。流式中途重试会**重新生成**（可能重复输出已显示部分，属设计取舍）。
 
 > ⚠ 启动时会打印 API key 配置来源（`✓ API Key 来源：本地配置文件 …`），
 > 便于确认 key 从哪读入；缺失时 fail-fast 给出完整配置指引。
@@ -80,7 +84,7 @@ while not stopped:
 ### 1. 配置（本地配置文件，不写死在代码、不读环境变量）
 
 API key 等配置存放在本地 JSON 配置文件 `~/.hellollm/config.json`
-（独立模块 `hello_llm/config/loader.py` 负责定位、解析与合并）：
+（独立模块 `hello_llm/utils/config.py` 负责定位、解析与合并）：
 
 ```bash
 mkdir -p ~/.hellollm
@@ -100,6 +104,8 @@ chmod 600 ~/.hellollm/config.json
 - `--api-key sk-...` 仅作临时覆盖
 - 未配置 key 时启动 fail-fast，打印完整指引，退出码 1
 - VS Code F5 调试**无需改 launch.json**：配置文件独立于 shell 环境
+- 仓库根 `.vscode/launch.json` 已含 S01/S02 调试配置（`NO_PROXY=api.deepseek.com` 直连，
+  避免 macOS 系统代理转发 SSE 长连接不稳定导致 `Connection reset`）
 
 ```bash
 # 交互式 REPL（多轮、多回合对话，历史保留；滑动窗口防上下文超限）

@@ -5,9 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
-import hello_llm.config.loader as app_config
-from hello_llm.config.loader import build_model_config, load_config
-from hello_llm.providers import ConfigError, ModelConfig
+import hello_llm.utils.config as app_config
+from hello_llm.utils.config import build_model_config, load_config
+from hello_llm.services.api import ConfigError, ModelConfig
 
 
 def _args(**overrides):

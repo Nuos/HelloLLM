@@ -1,6 +1,6 @@
 """CLI 入口单测：API key 缺失时 fail-fast（不发请求、退出码 1、给出指引）。"""
 
-import hello_llm.config.loader as app_config
+import hello_llm.utils.config as app_config
 
 
 def _isolate(monkeypatch, tmp_path):
