@@ -39,6 +39,19 @@
         "NO_PROXY": "api.deepseek.com",
         "no_proxy": "api.deepseek.com"
       }
+    },
+    {
+      "name": "HelloLLM S04 (REPL)",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/S04-basic-miniloop/.venv/bin/python",
+      "program": "${workspaceFolder}/S04-basic-miniloop/hello_llm/entrypoints/cli.py",
+      "cwd": "${workspaceFolder}/S04-basic-miniloop",
+      "console": "integratedTerminal",
+      "env": {
+        "NO_PROXY": "api.deepseek.com",
+        "no_proxy": "api.deepseek.com"
+      }
     }
   ]
 }

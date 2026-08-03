@@ -1,0 +1,20 @@
+[project]
+name = "hello-llm"
+version = "0.1.0"
+description = "HelloLLM — 最简可交互 AI 编码 Agent：CLI 入口层 + Agent-Loop（依据 arXiv:2604.14228 图1 重建）"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+hello-llm = "hello_llm.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["hello_llm"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
