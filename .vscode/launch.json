@@ -65,6 +65,19 @@
         "NO_PROXY": "api.deepseek.com",
         "no_proxy": "api.deepseek.com"
       }
+    },
+    {
+      "name": "HelloLLM S06 (REPL)",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/S06-basic-ee/.venv/bin/python",
+      "program": "${workspaceFolder}/S06-basic-ee/hello_llm/entrypoints/cli.py",
+      "cwd": "${workspaceFolder}/S06-basic-ee",
+      "console": "integratedTerminal",
+      "env": {
+        "NO_PROXY": "api.deepseek.com",
+        "no_proxy": "api.deepseek.com"
+      }
     }
   ]
 }

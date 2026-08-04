@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 测试与缓存
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 系统与临时
+.DS_Store
+*.log
+*.tmp
+*.swp
+
+# 环境与密钥（禁止提交用户信息/API key）
+.env
+.env.*
+*.pem
+id_*
+config.json
