@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "write_file",
+        "command": "python3 -c \"import sys,json; d=json.load(sys.stdin); print(json.dumps({'decision':'allow'}))\""
+      }
+    ],
+    "PostToolUse": []
+  }
+}

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python 项目在 VS Code 完整运行配置指南（HelloLLM 实证）</title>
+<style>
+:root { --sidebar-w: 280px; --accent: #1d9bf0; --bg: #fff; --fg: #0f1419;
+  --muted: #536471; --border: #e1e8ed; --code-bg: #0d1117; --code-fg: #e6edf3; --quote-bg: #f7f9fa; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Segoe UI", Roboto, sans-serif;
+  color: var(--fg); background: var(--bg); line-height: 1.7; }
+#sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-w);
+  background: #f7f9fa; border-right: 1px solid var(--border); overflow-y: auto; padding: 20px 16px;
+  transition: transform .25s ease; z-index: 100; }
+body.sidebar-collapsed #sidebar { transform: translateX(-100%); }
+#sidebar .side-header { font-size: 15px; font-weight: 700; color: var(--accent); margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid var(--border); }
+#sidebar nav ul { list-style: none; }
+#sidebar nav li { margin: 2px 0; }
+#sidebar nav a { display: block; padding: 7px 10px; border-radius: 8px; color: var(--fg);
+  text-decoration: none; font-size: 14px; border-left: 3px solid transparent; transition: background .15s; }
+#sidebar nav a:hover, #sidebar nav a.active { background: #e8f0fe; color: var(--accent); }
+#sidebar nav a.active { border-left-color: var(--accent); font-weight: 600; }
+#content { margin-left: var(--sidebar-w); padding: 32px 48px 80px; max-width: 920px; transition: margin-left .25s ease; }
+body.sidebar-collapsed #content { margin-left: 0; }
+#toggle-btn { position: fixed; top: 14px; left: 14px; z-index: 200; width: 36px; height: 36px; border-radius: 8px;
+  border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 16px; color: var(--fg);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08); transition: left .25s ease; }
+#toggle-btn:hover { background: #e8f0fe; }
+article h1 { font-size: 30px; line-height: 1.3; margin: 8px 0 16px; }
+article h2 { font-size: 22px; margin: 40px 0 14px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+article h3 { font-size: 18px; margin: 28px 0 10px; }
+article p { margin: 12px 0; }
+article img { max-width: 100%; height: auto; border-radius: 10px; margin: 16px 0; border: 1px solid var(--border); display: block; }
+article hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+article blockquote { background: var(--quote-bg); border-left: 4px solid var(--accent); padding: 12px 18px; margin: 16px 0; border-radius: 0 8px 8px 0; color: var(--muted); }
+article ul, article ol { margin: 12px 0 12px 28px; }
+article li { margin: 4px 0; }
+article a { color: var(--accent); text-decoration: none; }
+article a:hover { text-decoration: underline; }
+.code-block { background: var(--code-bg); color: var(--code-fg); border-radius: 10px; padding: 16px 20px; margin: 16px 0; overflow-x: auto; font-size: 13.5px; line-height: 1.55; }
+.code-block code { font-family: "SF Mono", Menlo, Consolas, "JetBrains Mono", monospace; }
+.inline-code { background: #eef1f4; color: #d63384; border-radius: 4px; padding: 1px 6px; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: .9em; }
+.code-block .lang-tag { display: block; color: #8b949e; font-size: 12px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .5px; }
+.meta-box { background: #f7f9fa; border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 16px 0 24px; font-size: 13.5px; }
+.meta-item { display: flex; margin: 3px 0; }
+.meta-label { color: var(--muted); width: 90px; flex-shrink: 0; }
+.meta-value { font-weight: 500; }
+#to-top { position: fixed; right: 24px; bottom: 24px; z-index: 200; width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 18px; color: var(--fg);
+  box-shadow: 0 2px 6px rgba(0,0,0,.12); display: none; }
+#to-top.show { display: block; }
+@media (max-width: 768px) { #content { padding: 24px 18px 60px; } #sidebar { width: 250px; } }
+</style>
+</head>
+<body>
+<button id="toggle-btn" title="切换导航栏" aria-label="切换导航栏">☰</button>
+<aside id="sidebar">
+  <div class="side-header">📑 目录</div>
+  <nav><ul>
+    <li><a href="#top" data-nav>⤴ 顶部</a></li>
+    <li><a href="#一-机制依据-vs-code-怎么-跑-python" data-nav>一、机制依据：VS Code 怎么&quot;跑&quot;Python</a></li>
+<li><a href="#二-配置清单-7-项-按必要性排序" data-nav>二、配置清单（7 项，按必要性排序）</a></li>
+<li><a href="#三-hellollm-实际配置-实证对照" data-nav>三、HelloLLM 实际配置（实证对照）</a></li>
+<li><a href="#四-常见坑与解决-踩坑记录" data-nav>四、常见坑与解决（踩坑记录）</a></li>
+<li><a href="#五-完整-workflow-从零到跑通" data-nav>五、完整 workflow（从零到跑通）</a></li>
+<li><a href="#六-todo-list-配置核对清单" data-nav>六、todo list（配置核对清单）</a></li>
+<li><a href="#七-验证与验收标准" data-nav>七、验证与验收标准</a></li>
+    <li><a href="#end" data-nav>⤵ 文末</a></li>
+  </ul></nav>
+</aside>
+<main id="content">
+  <article id="top">
+    <h1>Python 项目在 VS Code 完整运行配置指南（HelloLLM 实证）</h1>
+    <div class="meta-item"><span class="meta-label">适用</span><span class="meta-value">HelloLLM 教程项目（S01-S05）与任意 Python 项目</span></div><div class="meta-item"><span class="meta-label">版本</span><span class="meta-value">v1.0</span></div><div class="meta-item"><span class="meta-label">日期</span><span class="meta-value">2026-08-03</span></div><div class="meta-item"><span class="meta-label">依据</span><span class="meta-value">VS Code Python 扩展官方机制 + PEP 668 + HelloLLM 实际踩坑修复</span></div>
+    <h1 id="python-项目在-vs-code-完整运行配置指南-hellollm-实证">Python 项目在 VS Code 完整运行配置指南（HelloLLM 实证）</h1>
+<blockquote>
+<p>适用: HelloLLM 教程项目（S01-S05）与任意 Python 项目</p>
+<p>版本: v1.0</p>
+<p>日期: 2026-08-03</p>
+<p>依据: VS Code Python 扩展官方机制 + PEP 668 + HelloLLM 实际踩坑修复</p>
+</blockquote>
+<hr>
+<h2 id="一-机制依据-vs-code-怎么-跑-python">一、机制依据：VS Code 怎么"跑"Python</h2>
+<p>VS Code 本身不含 Python 运行时，它靠 Python 扩展把三件事串起来，而这三件事全部依赖同一个"选中的解释器"。</p>
+<ol>
+<li>IntelliSense 与 Pylance（代码补全、报错）——依赖解释器。选错解释器时补全出不来、明明装了库还报"找不到"。</li>
+<li>运行与调试（F5、右上角运行按钮）——依赖解释器与 launch.json。用错解释器时 import 全炸。</li>
+<li>终端激活（打开终端自动 activate venv）——依赖解释器。选错时终端里 python 是别的版本。</li>
+</ol>
+<p>打个比方：解释器是项目的"工作台"。VS Code 的所有工具（语法助手、调试器、终端）都到这个工作台上拿工具。工作台选错了，一切都乱。</p>
+<p><strong>配置的本质</strong>：项目里的一切 Python 相关能力，最终都要回答同一个问题——"用哪个 Python 执行"。settings.json、launch.json、终端激活，都是把这个答案钉死，不让 VS Code 猜。</p>
+<h2 id="二-配置清单-7-项-按必要性排序">二、配置清单（7 项，按必要性排序）</h2>
+<h3 id="1-创建虚拟环境-venv-最基础">1. 创建虚拟环境 .venv（最基础）</h3>
+<p>命令：<code class="inline-code">python3 -m venv .venv</code></p>
+<p>依据：PEP 668 规定现代 macOS/Linux 系统 Python 受保护，直接 pip install 会拒绝（externally-managed-environment），必须用 venv；同时 venv 提供依赖隔离，每个项目独立装包互不污染。</p>
+<h3 id="2-安装-python-扩展与-pylance">2. 安装 Python 扩展与 Pylance</h3>
+<p>安装 ms-python.python（自带 Pylance）。没有扩展 VS Code 不认 Python 文件；Pylance 提供补全、类型检查与诊断。</p>
+<h3 id="3-告诉-vs-code-用哪个解释器-vscode-settings-json">3. 告诉 VS Code 用哪个解释器（.vscode/settings.json）</h3>
+<p>配置示例：python.defaultInterpreterPath 指向 .venv/bin/python，python.terminal.activateEnvironment 设为 true。</p>
+<p>依据：Python 扩展默认选系统 Python 或"最近打开过的解释器记忆"，必须显式指定。这就是 S04/S05 曾出问题的根因——根 settings.json 只指向 S01 的 venv，S04/S05 没配时 VS Code 就会用错工作台。</p>
+<p>注意：单根工作区（打开一个文件夹）只能有一个默认解释器。HelloLLM 这种"一个仓库含多个独立项目"的结构，解决方式是每个阶段目录内放自己的 .vscode/settings.json（单独打开该目录时生效），再加上 launch.json 每条配置显式指定 python。</p>
+<h3 id="4-调试配置-vscode-launch-json">4. 调试配置（.vscode/launch.json）</h3>
+<p>debugpy 调试器需要四样东西：python（用哪个解释器启动）、program（启动哪个入口文件）、cwd（在哪个目录跑，相对路径与配置文件查找依赖它）、env（运行时环境变量，如 API key、NO_PROXY 代理直连）。</p>
+<h3 id="5-测试配置">5. 测试配置</h3>
+<p>settings.json 里开启 python.testing.pytestEnabled 并指定 pytestArgs。不配也能命令行跑 pytest，但 VS Code 侧边栏"测试"视图和 Run Test 按钮不可用。</p>
+<h3 id="6-环境变量-api-key-代理">6. 环境变量（API key / 代理）</h3>
+<p>运行时真实依赖。HelloLLM 的 API key 走 ~/.hellollm/config.json（项目外、0o600，不进仓库）；代理问题用 launch.json 的 NO_PROXY=api.deepseek.com 直连解决——SSE 长连接走系统代理会间歇断连。</p>
+<h3 id="7-gitignore-排除-venv-与敏感文件">7. .gitignore 排除 .venv 与敏感文件</h3>
+<p>venv 是机器相关的（路径/包版本），提交了别人也跑不了，且可能含敏感信息。.venv、__pycache__、hooks.json（私人配置）都在排除清单。</p>
+<h2 id="三-hellollm-实际配置-实证对照">三、HelloLLM 实际配置（实证对照）</h2>
+<ol>
+<li>五阶段各自 venv（S0X/.venv）——解决 PEP 668 与依赖隔离。</li>
+<li>五阶段各自 settings.json（S0X/.vscode/settings.json）——单独打开目录时解释器正确。</li>
+<li>五条调试配置（根 .vscode/launch.json）——F5 用对 venv，NO_PROXY 直连。</li>
+<li>顶部双模式导入块（cli.py 顶部）——解决 VS Code 运行按钮直接跑脚本时无包上下文、相对导入必炸的问题（踩过两次）。</li>
+<li>非 TTY 引导（repl.py）——检测 stdin 非终端时引导用户到集成终端（输出面板无行编辑、中文输入异常）。</li>
+<li>pytest 配置（各阶段 tests 目录）——测试发现与运行。</li>
+</ol>
+<h2 id="四-常见坑与解决-踩坑记录">四、常见坑与解决（踩坑记录）</h2>
+<ol>
+<li>默认解释器只指向 S01——打开 S04/S05 的 .py 时 IntelliSense、运行按钮、终端激活都用 S01 的 venv。解决：每个阶段目录放自己的 .vscode/settings.json。</li>
+<li>相对导入在脚本模式必炸——VS Code 运行按钮（或 python cli.py）直接执行时 __package__ 为空，from ..xxx import 报 ImportError。解决：cli.py 顶部双模式块（脚本模式用绝对导入，包模式用相对导入），且函数体内禁止相对导入。</li>
+<li>非 TTY 终端无行编辑——VS Code 输出面板里 input() 退格无效、中文输入异常。解决：启动时检测 isatty() 并引导到集成终端。</li>
+<li>系统代理破坏 SSE 长连接——Python urllib 自动读 macOS 系统代理（VPN 127.0.0.1:4780），转发 SSE 长连接不稳定导致 Connection reset。解决：launch.json 里 NO_PROXY=api.deepseek.com 直连。</li>
+<li>PEP 668 拒绝 pip install——系统 Python 受保护。解决：一律用 venv。</li>
+</ol>
+<h2 id="五-完整-workflow-从零到跑通">五、完整 workflow（从零到跑通）</h2>
+<ol>
+<li>克隆或创建项目目录，进入项目根。</li>
+<li>创建虚拟环境：python3 -m venv .venv。</li>
+<li>激活并安装依赖：.venv/bin/pip install -r requirements.txt（或 uv sync）。</li>
+<li>安装 VS Code 扩展：Python（含 Pylance）、debugpy（随扩展自带）。</li>
+<li>创建 .vscode/settings.json：指定 defaultInterpreterPath 与终端激活。</li>
+<li>创建 .vscode/launch.json：为每个入口（REPL/无头）写调试配置（python、program、cwd、env）。</li>
+<li>配置测试：settings.json 开启 pytest。</li>
+<li>配置环境变量：API key 入本地配置文件（项目外），代理直连入 launch.json env。</li>
+<li>验证：打开 .py 文件看右下角解释器；F5 调试跑通；pytest 全绿；终端 which python 指向 venv。</li>
+<li>收尾：.gitignore 排除 .venv 与敏感文件，提交前敏感扫描。</li>
+</ol>
+<h2 id="六-todo-list-配置核对清单">六、todo list（配置核对清单）</h2>
+<ul>
+<li>☐ 已创建 .venv 且依赖安装完成</li>
+<li>☐ 已安装 Python 扩展与 Pylance</li>
+<li>☐ .vscode/settings.json 已指定 defaultInterpreterPath 指向本阶段 venv</li>
+<li>☐ 终端自动激活已开启（activateEnvironment）</li>
+<li>☐ .vscode/launch.json 每条调试配置的 python/program/cwd/env 完整</li>
+<li>☐ 调试配置的 env 含 NO_PROXY 直连（有代理环境时）</li>
+<li>☐ pytest 测试配置已开启且测试发现正常</li>
+<li>☐ API key 已在本地配置文件（项目外），未出现在仓库</li>
+<li>☐ .gitignore 已排除 .venv、__pycache__、私人配置</li>
+<li>☐ 双模式导入块已就位（脚本模式可跑）</li>
+<li>☐ 打开 .py 文件右下角显示正确解释器</li>
+<li>☐ F5 调试断点命中</li>
+<li>☐ pytest 全绿</li>
+<li>☐ 终端 which python 指向 .venv/bin/python</li>
+<li>☐ 真实运行（带 API key）一轮对话正常</li>
+</ul>
+<h2 id="七-验证与验收标准">七、验证与验收标准</h2>
+<ol>
+<li>打开任意 .py，右下角状态栏显示正确解释器（本阶段 venv）。</li>
+<li>F5 调试：断点命中、变量可查（debugpy 正常）。</li>
+<li>运行按钮直接跑（脚本模式）：无 ImportError（双模式块生效）。</li>
+<li>终端：which python 指向 .venv/bin/python（自动激活）。</li>
+<li>侧边栏测试视图：发现全部用例，跑全绿。</li>
+<li>真实运行：带 API key 跑一轮对话正常（网络直连无断连）。</li>
+</ol>
+    <div id="end" style="height:1px;"></div>
+  </article>
+</main>
+<button id="to-top" title="返回顶部">↑</button>
+<script>
+(function () {
+  const body = document.body, btn = document.getElementById('toggle-btn'), toTop = document.getElementById('to-top');
+  const KEY = 'nav-python-项目在-vs-code-完整运行配';
+  if (localStorage.getItem(KEY) === 'collapsed') body.classList.add('sidebar-collapsed');
+  btn.addEventListener('click', function () {
+    body.classList.toggle('sidebar-collapsed');
+    localStorage.setItem(KEY, body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open');
+  });
+  window.addEventListener('scroll', function () { toTop.classList.toggle('show', window.scrollY > 600); });
+  toTop.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  const navLinks = document.querySelectorAll('[data-nav]'), sections = [];
+  navLinks.forEach(a => { const el = document.getElementById(a.getAttribute('href').slice(1)); if (el) sections.push({ id: el.id, el }); });
+  const spy = new IntersectionObserver(function (entries) {
+    entries.forEach(e => { if (e.isIntersecting) {
+      navLinks.forEach(a => a.classList.remove('active'));
+      const link = document.querySelector('[data-nav][href="#' + e.target.id + '"]');
+      if (link) link.classList.add('active');
+    } });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+  sections.forEach(s => spy.observe(s.el));
+  document.querySelectorAll('.code-block').forEach(function (pre) {
+    const code = pre.querySelector('code');
+    const lang = (code.className.match(/language-(\w+)/) || [])[1] || 'text';
+    const tag = document.createElement('span'); tag.className = 'lang-tag'; tag.textContent = lang;
+    pre.prepend(tag);
+  });
+})();
+</script>
+</body>
+</html>
